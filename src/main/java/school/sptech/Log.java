@@ -9,6 +9,7 @@ public class Log {
     private double usoRAM;
     private double usoDisco;
 
+    // Constrói Log com os dados informados
     public Log(String identificadorTotem, String dataHora, double usoCPU, double usoRAM, double usoDisco) {
         this.identificadorTotem = identificadorTotem;
         this.dataHora = dataHora;
@@ -17,24 +18,32 @@ public class Log {
         this.usoDisco = usoDisco;
     }
 
-    public String getIdentificadorTotem() { return identificadorTotem; }
+    // Retorna identificador do totem
+    public String getIdentificadorTotem() {
+        return identificadorTotem;
+    }
 
+    // Retorna data e hora do log
     public String getDataHora() {
         return dataHora;
     }
 
+    // Retorna uso de CPU
     public double getUsoCPU() {
         return usoCPU;
     }
 
+    // Retorna uso de RAM
     public double getUsoRAM() {
         return usoRAM;
     }
 
+    // Retorna uso de Disco
     public double getUsoDisco() {
         return usoDisco;
     }
 
+    // Retorna log formatado em texto
     public String toString() {
         return "ID: " + identificadorTotem +
                 " | Data: " + dataHora +
@@ -43,13 +52,13 @@ public class Log {
                 " | Disco: " + usoDisco + "%";
     }
 
-    public Double executar(String comando){
-        try{
+    // Função para retornar o valor de um getter pelo nome (reflection)
+    public Double executar(String comando) {
+        try {
             Method metodo = this.getClass().getMethod(comando);
             return (Double) metodo.invoke(this);
-
-        }catch (Exception e){
-            return  0.0;
+        } catch (Exception e) {
+            return 0.0;
         }
     }
 }

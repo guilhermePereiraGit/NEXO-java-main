@@ -6,16 +6,17 @@ public class AdministradorLog {
 
     private ArrayList<Log> logs;
 
+    // Constrói AdministradorLog iniciando a lista
     public AdministradorLog() {
         logs = new ArrayList<>();
     }
 
-    // Adicionar log
+    // Adiciona log na lista
     public void adicionarLog(Log log) {
         logs.add(log);
     }
 
-    // Mostrar todos os logs
+    // Mostra todos os logs
     public void mostrarTodosLogs() {
         if (logs.isEmpty()) {
             System.out.println("Nenhum log registrado.");
@@ -26,7 +27,7 @@ public class AdministradorLog {
         }
     }
 
-    // Selection sort para ordenar por data (mais antigo primeiro)
+    // Ordena logs por data (mais antigo primeiro) usando selection sort
     public void ordenarPorData() {
         for (int i = 0; i < logs.size() - 1; i++) {
             int indiceMenor = i;
@@ -41,12 +42,12 @@ public class AdministradorLog {
                 logs.set(indiceMenor, temp);
             }
         }
-
         for (Log log : logs) {
             System.out.println(log);
         }
     }
-        //Adiciona ordenação selectionSort nos métodos de ordenação
+
+    // Ordena logs por CPU, RAM ou Disco usando selection sort
     private void selectionSort(ArrayList<Log> logs, String componente) {
         for (int i = 0; i < logs.size() - 1; i++) {
             int indiceMenor = i;
@@ -66,43 +67,43 @@ public class AdministradorLog {
         }
     }
 
-    // Selection sort para ordenar por uso de CPU
+    // Ordena logs por CPU
     public void ordenarPorCPU() {
         selectionSort(logs, "getUsoCPU");
     }
 
-    // Selection sort para ordenar por uso de RAM
+    // Ordena logs por RAM
     public void ordenarPorRAM() {
         selectionSort(logs, "getUsoRAM");
     }
 
-    // Selection sort para ordenar por uso de Disco
+    // Ordena logs por Disco
     public void ordenarPorDisco() {
         selectionSort(logs, "getUsoDisco");
     }
 
-    // Mostrar somente data e CPU
+    // Mostra ID, data e CPU
     public void mostrarDataECpu() {
         for (Log log : logs) {
-            System.out.println("ID: "+ log.getIdentificadorTotem() + " | Data: " + log.getDataHora() + " | CPU: " + log.getUsoCPU() + "%");
+            System.out.println("ID: " + log.getIdentificadorTotem() + " | Data: " + log.getDataHora() + " | CPU: " + log.getUsoCPU() + "%");
         }
     }
 
-    // Mostrar somente ID, data e RAM
+    // Mostra ID, data e RAM
     public void mostrarDataERam() {
         for (Log log : logs) {
-            System.out.println("ID: "+ log.getIdentificadorTotem() + " | Data: " + log.getDataHora() + " | RAM: " + log.getUsoRAM() + "%");
+            System.out.println("ID: " + log.getIdentificadorTotem() + " | Data: " + log.getDataHora() + " | RAM: " + log.getUsoRAM() + "%");
         }
     }
 
-    // Mostrar somente ID, data e Disco
+    // Mostra ID, data e Disco
     public void mostrarDataEDisco() {
         for (Log log : logs) {
-            System.out.println("ID: "+ log.getIdentificadorTotem() + " | Data: " + log.getDataHora() + " | Disco: " + log.getUsoDisco() + "%");
+            System.out.println("ID: " + log.getIdentificadorTotem() + " | Data: " + log.getDataHora() + " | Disco: " + log.getUsoDisco() + "%");
         }
     }
 
-    // Mostrar logs com CPU acima de um limite
+    // Mostra logs com CPU acima do limite
     public void mostrarLogsCpuAcimaDe(double limite) {
         boolean encontrou = false;
         for (Log log : logs) {
@@ -116,7 +117,7 @@ public class AdministradorLog {
         }
     }
 
-    // Mostrar logs com RAM acima de um limite
+    // Mostra logs com RAM acima do limite
     public void mostrarLogsRamAcimaDe(double limite) {
         boolean encontrou = false;
         for (Log log : logs) {
@@ -130,7 +131,7 @@ public class AdministradorLog {
         }
     }
 
-    // Mostrar logs com Disco acima de um limite
+    // Mostra logs com Disco acima do limite
     public void mostrarLogsDiscoAcimaDe(double limite) {
         boolean encontrou = false;
         for (Log log : logs) {
