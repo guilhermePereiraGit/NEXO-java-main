@@ -5,12 +5,11 @@ import java.lang.reflect.Method;
 public class Log {
     private String identificadorTotem;
     private String dataHora;
-    private double usoCPU;
-    private double usoRAM;
-    private double usoDisco;
+    private Double usoCPU;
+    private Double usoRAM;
+    private Double usoDisco;
 
-    // Constrói Log com os dados informados
-    public Log(String identificadorTotem, String dataHora, double usoCPU, double usoRAM, double usoDisco) {
+    public Log(String identificadorTotem, String dataHora, Double usoCPU, Double usoRAM, Double usoDisco) {
         this.identificadorTotem = identificadorTotem;
         this.dataHora = dataHora;
         this.usoCPU = usoCPU;
@@ -18,32 +17,27 @@ public class Log {
         this.usoDisco = usoDisco;
     }
 
-    // Retorna identificador do totem
     public String getIdentificadorTotem() {
         return identificadorTotem;
     }
 
-    // Retorna data e hora do log
     public String getDataHora() {
         return dataHora;
     }
 
-    // Retorna uso de CPU
-    public double getUsoCPU() {
+    public Double getUsoCPU() {
         return usoCPU;
     }
 
-    // Retorna uso de RAM
-    public double getUsoRAM() {
+    public Double getUsoRAM() {
         return usoRAM;
     }
 
-    // Retorna uso de Disco
-    public double getUsoDisco() {
+    public Double getUsoDisco() {
         return usoDisco;
     }
 
-    // Retorna log formatado em texto
+    @Override
     public String toString() {
         return "ID: " + identificadorTotem +
                 " | Data: " + dataHora +
@@ -52,7 +46,6 @@ public class Log {
                 " | Disco: " + usoDisco + "%";
     }
 
-    // Função para retornar o valor de um getter pelo nome (reflection)
     public Double executar(String comando) {
         try {
             Method metodo = this.getClass().getMethod(comando);
