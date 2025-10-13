@@ -1,5 +1,6 @@
 package school.sptech;
 
+import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.Scanner;
 
 public class Main {
@@ -7,6 +8,11 @@ public class Main {
         Scanner sc = new Scanner(System.in);
         Scanner scannerLine = new Scanner(System.in);
         AdministradorLog logGerenciador = new AdministradorLog();
+        Connection connection = new Connection();
+        JdbcTemplate con = new JdbcTemplate(connection.getDataSource());
+
+        ServicoAlerta servicoAlerta = new ServicoAlerta(con);
+        logGerenciador.setServicoAlerta(servicoAlerta);
 
         String continuar;
 
@@ -74,21 +80,18 @@ public class Main {
                     System.out.println("=== CPU acima de ...% ===");
                     System.out.println("Digite a porcentagem para verificar capturas elevadas:");
                     porcentagem = sc.nextDouble();
-
                     logGerenciador.mostrarLogsCpuAcimaDe(porcentagem);
                     break;
                 case 9:
                     System.out.println("=== RAM acima de ...% ===");
                     System.out.println("Digite a porcentagem para verificar capturas elevadas:");
                     porcentagem = sc.nextDouble();
-
                     logGerenciador.mostrarLogsRamAcimaDe(porcentagem);
                     break;
                 case 10:
                     System.out.println("=== Disco acima de ...% ===");
                     System.out.println("Digite a porcentagem para verificar capturas elevadas:");
                     porcentagem = sc.nextDouble();
-
                     logGerenciador.mostrarLogsDiscoAcimaDe(porcentagem);
                     break;
                 case 11:
@@ -105,5 +108,4 @@ public class Main {
 
         } while(continuar.equalsIgnoreCase("sim"));
     }
-
 }

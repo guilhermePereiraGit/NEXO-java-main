@@ -5,18 +5,80 @@ import java.util.ArrayList;
 public class AdministradorLog {
 
     private ArrayList<Log> logs;
+    private ServicoAlerta servicoAlerta;
+    private final Double LIMITE_CPU = 80.0; // LIMITES PARA ALERTAS
+    private final Double LIMITE_RAM = 85.0;
+    private final Double LIMITE_DISCO = 90.0;
 
     // Constrói AdministradorLog iniciando a lista
     public AdministradorLog() {
         logs = new ArrayList<>();
+        this.servicoAlerta = null; // INICIALMENTE NULL
     }
 
-    // Adiciona log na lista
+    public void setServicoAlerta(ServicoAlerta servicoAlerta) {
+        this.servicoAlerta = servicoAlerta;
+    }
+
     public void adicionarLog(Log log) {
         logs.add(log);
+
+        if (servicoAlerta != null) {
+            servicoAlerta.registrarAlertaCPU(log.getIdentificadorTotem(), log.getUsoCPU(), LIMITE_CPU);
+            servicoAlerta.registrarAlertaRAM(log.getIdentificadorTotem(), log.getUsoRAM(), LIMITE_RAM);
+            servicoAlerta.registrarAlertaDisco(log.getIdentificadorTotem(), log.getUsoDisco(), LIMITE_DISCO);
+        }
     }
 
-    // Mostra todos os logs
+    public void mostrarLogsCpuAcimaDe(double limite) {
+        boolean encontrou = false;
+        for (Log log : logs) {
+            if (log.getUsoCPU() > limite) {
+                System.out.println(log);
+                encontrou = true;
+                // ALERTA SE FOR CRÍTICO (NOVO)
+                if (servicoAlerta != null && log.getUsoCPU() > LIMITE_CPU) {
+                    servicoAlerta.registrarAlertaCPU(log.getIdentificadorTotem(), log.getUsoCPU(), LIMITE_CPU);
+                }
+            }
+        }
+        if (!encontrou) {
+            System.out.println("Nenhum log com CPU acima de " + limite + "%.");
+        }
+    }
+
+    public void mostrarLogsRamAcimaDe(double limite) {
+        boolean encontrou = false;
+        for (Log log : logs) {
+            if (log.getUsoRAM() > limite) {
+                System.out.println(log);
+                encontrou = true;
+                if (servicoAlerta != null && log.getUsoRAM() > LIMITE_RAM) {
+                    servicoAlerta.registrarAlertaRAM(log.getIdentificadorTotem(), log.getUsoRAM(), LIMITE_RAM);
+                }
+            }
+        }
+        if (!encontrou) {
+            System.out.println("Nenhum log com RAM acima de " + limite + "%.");
+        }
+    }
+
+    public void mostrarLogsDiscoAcimaDe(double limite) {
+        boolean encontrou = false;
+        for (Log log : logs) {
+            if (log.getUsoDisco() > limite) {
+                System.out.println(log);
+                encontrou = true;
+                if (servicoAlerta != null && log.getUsoDisco() > LIMITE_DISCO) {
+                    servicoAlerta.registrarAlertaDisco(log.getIdentificadorTotem(), log.getUsoDisco(), LIMITE_DISCO);
+                }
+            }
+        }
+        if (!encontrou) {
+            System.out.println("Nenhum log com Disco acima de " + limite + "%.");
+        }
+    }
+
     public void mostrarTodosLogs() {
         if (logs.isEmpty()) {
             System.out.println("Nenhum log registrado.");
@@ -27,7 +89,6 @@ public class AdministradorLog {
         }
     }
 
-    // Ordena logs por data (mais antigo primeiro) usando selection sort
     public void ordenarPorData() {
         for (int i = 0; i < logs.size() - 1; i++) {
             int indiceMenor = i;
@@ -47,7 +108,6 @@ public class AdministradorLog {
         }
     }
 
-    // Ordena logs por CPU, RAM ou Disco usando selection sort
     private void selectionSort(ArrayList<Log> logs, String componente) {
         for (int i = 0; i < logs.size() - 1; i++) {
             int indiceMenor = i;
@@ -67,81 +127,33 @@ public class AdministradorLog {
         }
     }
 
-    // Ordena logs por CPU
     public void ordenarPorCPU() {
         selectionSort(logs, "getUsoCPU");
     }
 
-    // Ordena logs por RAM
     public void ordenarPorRAM() {
         selectionSort(logs, "getUsoRAM");
     }
 
-    // Ordena logs por Disco
     public void ordenarPorDisco() {
         selectionSort(logs, "getUsoDisco");
     }
 
-    // Mostra ID, data e CPU
     public void mostrarDataECpu() {
         for (Log log : logs) {
             System.out.println("ID: " + log.getIdentificadorTotem() + " | Data: " + log.getDataHora() + " | CPU: " + log.getUsoCPU() + "%");
         }
     }
 
-    // Mostra ID, data e RAM
     public void mostrarDataERam() {
         for (Log log : logs) {
             System.out.println("ID: " + log.getIdentificadorTotem() + " | Data: " + log.getDataHora() + " | RAM: " + log.getUsoRAM() + "%");
         }
     }
 
-    // Mostra ID, data e Disco
     public void mostrarDataEDisco() {
         for (Log log : logs) {
             System.out.println("ID: " + log.getIdentificadorTotem() + " | Data: " + log.getDataHora() + " | Disco: " + log.getUsoDisco() + "%");
-        }
-    }
-
-    // Mostra logs com CPU acima do limite
-    public void mostrarLogsCpuAcimaDe(double limite) {
-        boolean encontrou = false;
-        for (Log log : logs) {
-            if (log.getUsoCPU() > limite) {
-                System.out.println(log);
-                encontrou = true;
-            }
-        }
-        if (!encontrou) {
-            System.out.println("Nenhum log com CPU acima de " + limite + "%.");
-        }
-    }
-
-    // Mostra logs com RAM acima do limite
-    public void mostrarLogsRamAcimaDe(double limite) {
-        boolean encontrou = false;
-        for (Log log : logs) {
-            if (log.getUsoRAM() > limite) {
-                System.out.println(log);
-                encontrou = true;
-            }
-        }
-        if (!encontrou) {
-            System.out.println("Nenhum log com RAM acima de " + limite + "%.");
-        }
-    }
-
-    // Mostra logs com Disco acima do limite
-    public void mostrarLogsDiscoAcimaDe(double limite) {
-        boolean encontrou = false;
-        for (Log log : logs) {
-            if (log.getUsoDisco() > limite) {
-                System.out.println(log);
-                encontrou = true;
-            }
-        }
-        if (!encontrou) {
-            System.out.println("Nenhum log com Disco acima de " + limite + "%.");
         }
     }
 }
