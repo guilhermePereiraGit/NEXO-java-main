@@ -123,11 +123,11 @@ public class ETL {
 
         try {
             Boolean cabecalho = true;
-            int numeroColunasEsperadas = 6; // timestamp, cpu, ram, disco, processos, mac
+            Integer numeroColunasEsperadas = 6;
 
             while (entrada.hasNextLine()) {
                 String linha = entrada.nextLine();
-                String[] valores = linha.split(",", -1); // -1 para manter campos vazios
+                String[] valores = linha.split(",", -1);
 
                 if (cabecalho) {
                     saida.write(linha + "\n");
@@ -139,7 +139,7 @@ public class ETL {
                         if (i < valores.length && valores[i] != null && !valores[i].trim().isEmpty()) {
                             valoresCompletos[i] = valores[i];
                         } else {
-                            valoresCompletos[i] = "0";
+                            valoresCompletos[i] = "Dado_perdido";
                         }
                     }
 
@@ -195,7 +195,6 @@ public class ETL {
         try {
             arqLeitura = new FileReader(nomeArqOrigem);
             entrada = new Scanner(arqLeitura);
-
             saida = new OutputStreamWriter(new FileOutputStream(nomeArqDestino), StandardCharsets.UTF_8);
         } catch (FileNotFoundException erro) {
             System.out.println("Arquivo de origem inexistente!");
@@ -204,32 +203,39 @@ public class ETL {
 
         try {
             Boolean cabecalho = true;
+            Integer numeroColunasEsperadas = 6;
 
             while (entrada.hasNextLine()) {
                 String linha = entrada.nextLine();
-                String[] valores = linha.split(";");
+                String[] valores = linha.split(",", -1);
 
                 if (cabecalho) {
                     saida.write(linha + "\n");
-
-                    System.out.println();
                     cabecalho = false;
                 } else {
-                    for (String valor : valores) {
-                        String  ts    = textoLimpo(valores[0]);
-                        String  proc  = textoLimpo(valores[1]).replace(",", " ");
-                        Double  cpu   = converterDouble(normalizarNumero(valores[2]));
-                        Double  ram   = converterDouble(normalizarNumero(valores[3]));
-                        Double  disco = converterDouble(normalizarNumero(valores[4]));
-                        String  mac   = textoLimpo(valores[5]);
+                    String[] valoresCompletos = new String[numeroColunasEsperadas];
 
-                        String tsFmt = formatarData(ts);
-
-                        saida.write(tsFmt + ";" + proc + ";" + cpu + ";" + ram + ";" + disco + ";" + mac);
+                    for (int i = 0; i < numeroColunasEsperadas; i++) {
+                        if (i < valores.length && valores[i] != null && !valores[i].trim().isEmpty()) {
+                            valoresCompletos[i] = valores[i];
+                        } else {
+                            valoresCompletos[i] = "Dado_perdido";
+                        }
                     }
-                    System.out.println();
+
+                    String ts = textoLimpo(valores[0]);
+                    String proc = textoLimpo(valores[1]).replace(",", " ");
+                    Double cpu = converterDouble(normalizarNumero(valores[2]));
+                    Double ram = converterDouble(normalizarNumero(valores[3]));
+                    Double disco = converterDouble(normalizarNumero(valores[4]));
+                    String mac = textoLimpo(valores[5]);
+
+                    String tsFmt = formatarData(ts);
+
+                    saida.write(tsFmt + "," + proc + "," + cpu + "," + ram + "," + disco + "," + mac + "\n");
                 }
             }
+
         } catch (IOException erro) {
             System.out.println("Erro ao ler ou gravar o arquivo!");
             erro.printStackTrace();
@@ -523,17 +529,15 @@ public class ETL {
         numeroTratado = numeroTratado.replace(",", ".");
         return numeroTratado;
     }
-
-    // Converte "2025-10-13_20-30-00" -> "2025-10-13 20:30:00"
-    // Se falhar o parse, devolve o original (não quebra)
-    private static String formatarData(String txt) {
+    
+    private static String formatarData(String texto) {
         try {
-            if (txt == null || txt.trim().isEmpty() || txt.equalsIgnoreCase("Dado_perdido")) {
+            if (texto == null || texto.trim().isEmpty() || texto.equalsIgnoreCase("Dado_perdido")) {
                 return "Dado_perdido";
             }
-            txt = txt.trim();
+            texto = texto.trim();
 
-            LocalDateTime dt = LocalDateTime.parse(txt, FORMATO_ENTRADA);
+            LocalDateTime dt = LocalDateTime.parse(texto, FORMATO_ENTRADA);
             return dt.format(FORMATO_SAIDA);
 
         } catch (Exception e) {
@@ -584,7 +588,7 @@ public class ETL {
         limparDadosParaTrusted("Dados", "Dados_Trusted");
 
         System.out.println("[2/5] Limpando RAW -> TRUSTED (Processos)...");
-        // limparProcessosParaTrusted("Processos", "Processos_Trusted");
+        limparProcessosParaTrusted("Processos", "Processos_Trusted");
 
         System.out.println("[3/5] Gerando CLIENT (Sistema)...");
         // tratarDadosSistema(SAIDA_DADOS_TRUSTED, SAIDA_DADOS_CLIENT_PASTA, SAIDA_DADOS_CLIENT_RAIZ);
