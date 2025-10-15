@@ -1,9 +1,7 @@
 package school.sptech;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileWriter;
-import java.io.PrintWriter;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -34,67 +32,67 @@ public class ETL {
 
     // 1) LIMITES / PARÂMETROS
 
-    private static final Double LIMITE_CPU_SISTEMA   = 6.5;   // %
-    private static final Double LIMITE_RAM_SISTEMA   = 82.0;  // %
-    private static final Double LIMITE_DISCO_SISTEMA = 39.0;  // %
+    static Double LIMITE_CPU_SISTEMA   = 6.5;   // %
+    static Double LIMITE_RAM_SISTEMA   = 82.0;  // %
+    static Double LIMITE_DISCO_SISTEMA = 39.0;  // %
 
-    private static final Double LIMITE_CPU_PROCESSO   = 1.0;   // %
-    private static final Double LIMITE_RAM_PROCESSO   = 5.0;   // %
-    private static final Double LIMITE_DISCO_PROCESSO = 300.0; // MB escritos
+    static Double LIMITE_CPU_PROCESSO   = 1.0;   // %
+    static Double LIMITE_RAM_PROCESSO   = 5.0;   // %
+    static Double LIMITE_DISCO_PROCESSO = 300.0; // MB escritos
 
-    private static final String[] PROCESSOS_SUSPEITOS = {
+    static String[] PROCESSOS_SUSPEITOS = {
             "MemCompression", "Discord.exe", "Code.exe"
     };
 
     // 2) CAMINHOS (RAW/SAÍDAS)
 
     // Onde procuramos os CSVs brutos (RAW): primeiro resources, depois raiz
-    private static final String CAMINHO_DADOS_RESOURCE     = "src/main/resources/Dados.csv";
-    private static final String CAMINHO_DADOS_RAIZ         = "Dados.csv";
-    private static final String CAMINHO_PROCESSOS_RESOURCE = "src/main/resources/Processos.csv";
-    private static final String CAMINHO_PROCESSOS_RAIZ     = "Processos.csv";
+    static String CAMINHO_DADOS_RESOURCE     = "src/main/resources/Dados.csv";
+    static String CAMINHO_DADOS_RAIZ         = "Dados.csv";
+    static String CAMINHO_PROCESSOS_RESOURCE = "src/main/resources/Processos.csv";
+    static String CAMINHO_PROCESSOS_RAIZ     = "Processos.csv";
 
     // Pastas “simulando” buckets S3
-    private static final String PASTA_TRUSTED = "storage/trusted";
-    private static final String PASTA_CLIENT  = "storage/client";
+    static String PASTA_TRUSTED = "storage/trusted";
+    static String PASTA_CLIENT  = "storage/client";
 
     // Saídas TRUSTED
-    private static final String SAIDA_DADOS_TRUSTED     = PASTA_TRUSTED + "/Dados_Trusted.csv";
-    private static final String SAIDA_PROCESSOS_TRUSTED = PASTA_TRUSTED + "/Processos_Trusted.csv";
+    static String SAIDA_DADOS_TRUSTED     = PASTA_TRUSTED + "/Dados_Trusted.csv";
+    static String SAIDA_PROCESSOS_TRUSTED = PASTA_TRUSTED + "/Processos_Trusted.csv";
 
     // Saídas CLIENT
-    private static final String SAIDA_DADOS_CLIENT_PASTA     = PASTA_CLIENT + "/Dados_Client.csv";
-    private static final String SAIDA_PROCESSOS_CLIENT_PASTA = PASTA_CLIENT + "/Processos_Client.csv";
-    private static final String SAIDA_DADOS_CLIENT_RAIZ      = "Dados_Client.csv";
-    private static final String SAIDA_PROCESSOS_CLIENT_RAIZ  = "Processos_Client.csv";
+    static String SAIDA_DADOS_CLIENT_PASTA     = PASTA_CLIENT + "/Dados_Client.csv";
+    static String SAIDA_PROCESSOS_CLIENT_PASTA = PASTA_CLIENT + "/Processos_Client.csv";
+    static String SAIDA_DADOS_CLIENT_RAIZ      = "Dados_Client.csv";
+    static String SAIDA_PROCESSOS_CLIENT_RAIZ  = "Processos_Client.csv";
 
     // 3) FORMATO DE DATA — Python usa underline
 
-    private static final DateTimeFormatter FORMATO_ENTRADA = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
-    private static final DateTimeFormatter FORMATO_SAIDA   = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    static DateTimeFormatter FORMATO_ENTRADA = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+    static DateTimeFormatter FORMATO_SAIDA   = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
 
     // 4) CONTADORES e “conjuntos” (sem duplicatas)
 
     // Contadores gerais do SISTEMA (linhas de Dados.csv tratadas):
-    private static Integer qtdLeiturasSistema = 0;
-    private static Integer qtdOk = 0;
-    private static Integer qtdAtencao = 0;
-    private static Integer qtdPerigoso = 0;
-    private static Integer qtdMuitoPerigoso = 0;
+    static Integer qtdLeiturasSistema = 0;
+    static Integer qtdOk = 0;
+    static Integer qtdAtencao = 0;
+    static Integer qtdPerigoso = 0;
+    static Integer qtdMuitoPerigoso = 0;
 
     // Contadores gerais de PROCESSOS:
-    private static Integer qtdLinhasProcesso = 0;
-    private static Integer qtdAltoConsumo = 0;
-    private static Integer qtdSuspeitos = 0;
-    private static Integer qtdRiscoDuplo = 0;
+    static Integer qtdLinhasProcesso = 0;
+    static Integer qtdAltoConsumo = 0;
+    static Integer qtdSuspeitos = 0;
+    static Integer qtdRiscoDuplo = 0;
 
     // “Conjuntos” de totens (sem duplicar MAC) — ArrayList + contains()
-    private static final ArrayList<String> totensSistema        = new ArrayList<>();
-    private static final ArrayList<String> totensProcessos      = new ArrayList<>();
-    private static final ArrayList<String> totensComSuspeito    = new ArrayList<>();
-    private static final ArrayList<String> totensComAltoConsumo = new ArrayList<>();
-    private static final ArrayList<String> totensComRiscoDuplo  = new ArrayList<>();
+    static ArrayList<String> totensSistema        = new ArrayList<>();
+    static ArrayList<String> totensProcessos      = new ArrayList<>();
+    static ArrayList<String> totensComSuspeito    = new ArrayList<>();
+    static ArrayList<String> totensComAltoConsumo = new ArrayList<>();
+    static ArrayList<String> totensComRiscoDuplo  = new ArrayList<>();
 
     // 5) RAW -> TRUSTED
 
@@ -106,47 +104,71 @@ public class ETL {
      * - Mantém exatamente as mesmas colunas do RAW (sem adicionar nada)
      */
 
-    private static void limparDadosParaTrusted(String entrada, String saida) {
-        // try-with-resources: fecha arquivos automaticamente (mesmo com erro)
-        try (
-                Scanner leitor = new Scanner(new FileInputStream(new File(entrada))); // lê linha a linha
-                PrintWriter gravador = new PrintWriter(new FileWriter(saida))         // grava o CSV de saída
-        ) {
-            Boolean primeiraLinha = true; // indica a primeira linha (cabeçalho do CSV original)
-            String cabecalho = "timestamp,cpu,ram,disco,qtd_processos,mac";
-            gravador.println(cabecalho);
+    private static void limparDadosParaTrusted(String nomeArqOrigem, String nomeArqDestino) {
+        FileReader arqLeitura = null;
+        Scanner entrada = null;
+        OutputStreamWriter saida = null;
+        Boolean deuRuim = false;
+        nomeArqOrigem += ".csv";
+        nomeArqDestino += ".csv";
 
-            while (leitor.hasNextLine()) {
-                String linha = leitor.nextLine();
+        try {
+            arqLeitura = new FileReader(nomeArqOrigem);
+            entrada = new Scanner(arqLeitura);
 
-                // pula o cabeçalho original do CSV bruto
-                if (primeiraLinha) { primeiraLinha = false; continue; }
+            saida = new OutputStreamWriter(new FileOutputStream(nomeArqDestino), StandardCharsets.UTF_8);
+        } catch (FileNotFoundException erro) {
+            System.out.println("Arquivo de origem inexistente!");
+            deuRuim = true;
+        }
 
-                // ignora linhas vazias
-                if (linha == null || linha.trim().isEmpty()) continue;
+        try {
+            Boolean cabecalho = true;
 
-                // ORDEM DAS COLUNAS (RAW): [0]=timestamp, [1]=cpu, [2]=ram, [3]=disco, [4]=qtd_processos, [5]=mac
-                String[] colunas = linha.replace(';', ',').split(",", -1); //  O "-1" garante que colunas vazias no fim da linha não sejam ignoradas
-                if (colunas.length < 6) continue; // linha incompleta? pula
+            while (entrada.hasNextLine()) {
+                String linha = entrada.nextLine();
+                String[] valores = linha.split(",");
 
-                // leitura (nulos, vírgulas, vazios)
-                String  ts    = textoLimpo(colunas[0]);
-                Double  cpu   = converterDouble(normalizarNumero(colunas[1]));
-                Double  ram   = converterDouble(normalizarNumero(colunas[2]));
-                Double  disco = converterDouble(normalizarNumero(colunas[3]));
-                Integer qtd   = converterInteiro(colunas[4]);
-                String  mac   = textoLimpo(colunas[5]);
+                if (cabecalho) {
+                    saida.write(linha + "\n");
 
-                // formata a data do padrão
-                String tsFmt = formatarData(ts);
+                    cabecalho = false;
 
-                // grava 1:1 apenas padronizado
-                gravador.println(tsFmt + "," + cpu + "," + ram + "," + disco + "," + qtd + "," + mac);
+                } else {
+                    while (valores.length < 6) {
+                        linha += ",";
+                        valores = linha.split(",");
+                    }
+
+                    String ts     = textoLimpo(valores[0]);
+                    Double cpu    = converterDouble(normalizarNumero(textoLimpo(valores[1])));
+                    Double ram    = converterDouble(normalizarNumero(textoLimpo(valores[2])));
+                    Double disco  = converterDouble(normalizarNumero(textoLimpo(valores[3])));
+                    Integer procs = converterInteiro(textoLimpo(valores[4]));
+                    String mac    = textoLimpo(valores[5]);
+
+                    String tsFmt = formatarData(ts);
+
+                    saida.write(tsFmt + "," + cpu + "," + ram + "," + disco + "," + procs + "," + mac + "\n");
+                }
+            }
+        } catch (IOException erro) {
+            System.out.println("Erro ao ler ou gravar o arquivo!");
+            erro.printStackTrace();
+            deuRuim = true;
+        } finally {
+            try {
+                if (entrada != null) entrada.close();
+                if (arqLeitura != null) arqLeitura.close();
+                if (saida != null) saida.close();
+            } catch (IOException erro) {
+                System.out.println("Erro ao fechar o arquivo!");
+                deuRuim = true;
             }
 
-        } catch (Exception e) {
-            // Qualquer erro de I/O: não derruba o ETL; apenas avisa
-            System.out.println("Erro (Dados TRUSTED): " + e.getMessage());
+            if (deuRuim) {
+                System.exit(1);
+            }
         }
     }
 
@@ -159,37 +181,69 @@ public class ETL {
      * - Mantém exatamente as colunas do RAW
      */
 
-    private static void limparProcessosParaTrusted(String entrada, String saida) {
-        try (
-                Scanner leitor = new Scanner(new FileInputStream(new File(entrada)));
-                PrintWriter gravador = new PrintWriter(new FileWriter(saida))
-        ) {
-            Boolean primeiraLinha = true;
-            String cabecalho = "timestamp,processo,cpu,ram,disco,mac";
-            gravador.println(cabecalho);
+    private static void limparProcessosParaTrusted(String nomeArqOrigem, String nomeArqDestino) {
+        FileReader arqLeitura = null;
+        Scanner entrada = null;
+        OutputStreamWriter saida = null;
+        Boolean deuRuim = false;
+        nomeArqOrigem += ".csv";
+        nomeArqDestino += ".csv";
 
-            while (leitor.hasNextLine()) {
-                String linha = leitor.nextLine();
-                if (primeiraLinha) { primeiraLinha = false; continue; }
-                if (linha == null || linha.trim().isEmpty()) continue;
+        try {
+            arqLeitura = new FileReader(nomeArqOrigem);
+            entrada = new Scanner(arqLeitura);
 
-                // ORDEM DAS COLUNAS (RAW): [0]=timestamp, [1]=processo, [2]=cpu, [3]=ram, [4]=disco, [5]=mac
-                String[] colunas = linha.replace(';', ',').split(",", -1); //  O "-1" garante que colunas vazias no fim da linha não sejam ignoradas
-                if (colunas.length < 6) continue; // linha incompleta? pula
+            saida = new OutputStreamWriter(new FileOutputStream(nomeArqDestino), StandardCharsets.UTF_8);
+        } catch (FileNotFoundException erro) {
+            System.out.println("Arquivo de origem inexistente!");
+            deuRuim = true;
+        }
 
-                String  ts    = textoLimpo(colunas[0]);
-                String  proc  = textoLimpo(colunas[1]).replace(",", " ");  // evita separar colunas no CSV final
-                Double  cpu   = converterDouble(normalizarNumero(colunas[2]));
-                Double  ram   = converterDouble(normalizarNumero(colunas[3]));
-                Double  disco = converterDouble(normalizarNumero(colunas[4]));
-                String  mac   = textoLimpo(colunas[5]);
+        try {
+            Boolean cabecalho = true;
 
-                String tsFmt = formatarData(ts);
-                gravador.println(tsFmt + "," + proc + "," + cpu + "," + ram + "," + disco + "," + mac);
+            while (entrada.hasNextLine()) {
+                String linha = entrada.nextLine();
+                String[] valores = linha.split(";");
+
+                if (cabecalho) {
+                    saida.write(linha + "\n");
+
+                    System.out.println();
+                    cabecalho = false;
+                } else {
+                    for (String valor : valores) {
+                        String  ts    = textoLimpo(valores[0]);
+                        String  proc  = textoLimpo(valores[1]).replace(",", " ");
+                        Double  cpu   = converterDouble(normalizarNumero(valores[2]));
+                        Double  ram   = converterDouble(normalizarNumero(valores[3]));
+                        Double  disco = converterDouble(normalizarNumero(valores[4]));
+                        String  mac   = textoLimpo(valores[5]);
+
+                        String tsFmt = formatarData(ts);
+
+                        saida.write(tsFmt + ";" + proc + ";" + cpu + ";" + ram + ";" + disco + ";" + mac);
+                    }
+                    System.out.println();
+                }
+            }
+        } catch (IOException erro) {
+            System.out.println("Erro ao ler ou gravar o arquivo!");
+            erro.printStackTrace();
+            deuRuim = true;
+        } finally {
+            try {
+                if (entrada != null) entrada.close();
+                if (arqLeitura != null) arqLeitura.close();
+                if (saida != null) saida.close();
+            } catch (IOException erro) {
+                System.out.println("Erro ao fechar o arquivo!");
+                deuRuim = true;
             }
 
-        } catch (Exception e) {
-            System.out.println("Erro (Processos TRUSTED): " + e.getMessage());
+            if (deuRuim) {
+                System.exit(1);
+            }
         }
     }
 
@@ -235,7 +289,7 @@ public class ETL {
                 String  mac   = textoLimpo(colunas[5]);
 
                 // Adiciona o totem na lista SEM duplicar
-                if (!totensSistema.contains(mac)) totensSistema.add(mac);
+                adicionarUnico(totensSistema, mac);
                 qtdLeiturasSistema++;
 
                 // Indicadores de alerta por componente
@@ -364,6 +418,19 @@ public class ETL {
 
     // 7) HELPERS
 
+    /**
+     * Verifica se já existe aquele valor dentro do array antes de adiciona-lo:
+     */
+
+    private static void adicionarUnico(ArrayList<String> lista, String valor) {
+        for (String item : lista) {
+            if (item.equals(valor)) {
+                return;
+            }
+        }
+        lista.add(valor);
+    }
+
 
     /**
      * Escolhe o caminho do arquivo RAW:
@@ -432,35 +499,65 @@ public class ETL {
         return Boolean.FALSE;
     }
 
-    // “Higieniza” texto nulo/vazio
+
     private static String textoLimpo(String s) {
-        return (s == null) ? "" : s.trim();
+        if (s == null || s.trim().isEmpty()) {
+            return "Dado_perdido";
+        }
+        s = s.trim();
+        return s;
     }
 
-    // Troca vírgula por ponto e trata vazio como “0” (ex.: "12,5" -> "12.5"; "" -> "0")
     private static String normalizarNumero(String texto) {
-        if (texto == null) return "0";
+        if (texto == null) {
+            return "Dado_perdido";
+        }
         String numeroTratado = texto.trim();
-        return numeroTratado.isEmpty() ? "0" : numeroTratado.replace(",", ".");
+
+        if (numeroTratado.isEmpty()) {
+            return "Dado_perdido";
+        }
+        numeroTratado = numeroTratado.replace(",", ".");
+        return numeroTratado;
     }
 
     // Converte "2025-10-13_20-30-00" -> "2025-10-13 20:30:00"
     // Se falhar o parse, devolve o original (não quebra)
     private static String formatarData(String txt) {
         try {
+            if (txt == null || txt.trim().isEmpty() || txt.equalsIgnoreCase("Dado_perdido")) {
+                return "Dado_perdido";
+            }
+            txt = txt.trim();
+
             LocalDateTime dt = LocalDateTime.parse(txt, FORMATO_ENTRADA);
             return dt.format(FORMATO_SAIDA);
+
         } catch (Exception e) {
-            return txt;
+            return "Dado_perdido";
         }
     }
 
     // Conversões (nulos/vazios viram zero)
     private static Double converterDouble(String texto) {
-        try { return Double.valueOf(texto.trim()); } catch (Exception e) { return 0.0; }
+        if (texto == null || texto.trim().isEmpty()) {
+            return 0.0;
+        }
+        try {
+            return Double.valueOf(texto.trim());
+        } catch (Exception e) {
+            return 0.0;
+        }
     }
     private static Integer converterInteiro(String texto) {
-        try { return Integer.valueOf(texto.trim()); } catch (Exception e) { return 0; }
+        if (texto == null || texto.trim().isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.valueOf(texto.trim());
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     // Ex.: 12.34 -> "12.3%"
@@ -479,25 +576,21 @@ public class ETL {
 
     public static void main(String[] args) {
 
-        // Decide de onde ler os RAW (resources ou raiz), sem mudar código entre máquinas
-        String caminhoDadosRaw = escolherCaminho(CAMINHO_DADOS_RESOURCE, CAMINHO_DADOS_RAIZ);
-        String caminhoProcRaw  = escolherCaminho(CAMINHO_PROCESSOS_RESOURCE, CAMINHO_PROCESSOS_RAIZ);
-
         // UX de progresso
         System.out.println("[1/5] Limpando RAW -> TRUSTED (Dados)...");
-        limparDadosParaTrusted(caminhoDadosRaw, SAIDA_DADOS_TRUSTED);
+        limparDadosParaTrusted("Dados", "Dados_Trusted");
 
         System.out.println("[2/5] Limpando RAW -> TRUSTED (Processos)...");
-        limparProcessosParaTrusted(caminhoProcRaw, SAIDA_PROCESSOS_TRUSTED);
+        // limparProcessosParaTrusted("Processos", "Processos_Trusted");
 
         System.out.println("[3/5] Gerando CLIENT (Sistema)...");
-        tratarDadosSistema(SAIDA_DADOS_TRUSTED, SAIDA_DADOS_CLIENT_PASTA, SAIDA_DADOS_CLIENT_RAIZ);
+        // tratarDadosSistema(SAIDA_DADOS_TRUSTED, SAIDA_DADOS_CLIENT_PASTA, SAIDA_DADOS_CLIENT_RAIZ);
 
         System.out.println("[4/5] Gerando CLIENT (Processos)...");
-        tratarProcessos(SAIDA_PROCESSOS_TRUSTED, SAIDA_PROCESSOS_CLIENT_PASTA, SAIDA_PROCESSOS_CLIENT_RAIZ);
+        // tratarProcessos(SAIDA_PROCESSOS_TRUSTED, SAIDA_PROCESSOS_CLIENT_PASTA, SAIDA_PROCESSOS_CLIENT_RAIZ);
 
         System.out.println("[5/5] Finalizando resumo...");
-        imprimirResumoConsole();
+        // imprimirResumoConsole();
     }
 
     // Resumo final no console

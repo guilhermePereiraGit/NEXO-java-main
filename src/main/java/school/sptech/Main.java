@@ -1,6 +1,7 @@
 package school.sptech;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+
 import java.util.Scanner;
 
 public class Main {
@@ -8,11 +9,6 @@ public class Main {
         Scanner sc = new Scanner(System.in);
         Scanner scannerLine = new Scanner(System.in);
         AdministradorLog logGerenciador = new AdministradorLog();
-        Connection connection = new Connection();
-        JdbcTemplate con = new JdbcTemplate(connection.getDataSource());
-
-        ServicoAlerta servicoAlerta = new ServicoAlerta(con);
-        logGerenciador.setServicoAlerta(servicoAlerta);
 
         String continuar;
 

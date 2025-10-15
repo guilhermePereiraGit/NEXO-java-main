@@ -6,9 +6,9 @@ public class AdministradorLog {
 
     private ArrayList<Log> logs;
     private ServicoAlerta servicoAlerta;
-    private final Double LIMITE_CPU = 80.0; // LIMITES PARA ALERTAS
-    private final Double LIMITE_RAM = 85.0;
-    private final Double LIMITE_DISCO = 90.0;
+    private Double LIMITE_CPU = 80.0; // LIMITES PARA ALERTAS
+    private Double LIMITE_RAM = 85.0;
+    private Double LIMITE_DISCO = 90.0;
 
     // Constrói AdministradorLog iniciando a lista
     public AdministradorLog() {
