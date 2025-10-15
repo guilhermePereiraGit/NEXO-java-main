@@ -35,16 +35,14 @@ public class ServicoAlerta {
     }
 
     private void registrarAlerta(String idTotem, String mensagem, String tipo, Double valorMedido, Double limite) {
-        // Inserção simplificada no schema sistema_nexo
         String sql = "INSERT INTO alerta (descricao, dataHora, fkTotem, tipo) VALUES (?, ?, ?, ?)";
 
         try {
-            // Assumindo que o idTotem é o mesmo do seu schema
             jdbcTemplate.update(sql, mensagem, LocalDateTime.now(), idTotem, tipo);
-            System.out.println("🚨 ALERTA REGISTRADO NO BANCO: " + mensagem);
-        } catch (Exception e) {
-            System.out.println("🚨 ALERTA (apenas console): " + mensagem);
-            System.out.println("Erro BD: " + e.getMessage());
+            System.out.println("ALERTA REGISTRADO NO BANCO: " + mensagem);
+        } catch (Exception erro) {
+            System.out.println("ALERTA (apenas console): " + mensagem);
+            System.out.println("Erro BD: " + erro.getMessage());
         }
     }
 }

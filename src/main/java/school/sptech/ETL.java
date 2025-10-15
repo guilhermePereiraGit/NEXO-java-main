@@ -115,7 +115,6 @@ public class ETL {
         try {
             arqLeitura = new FileReader(nomeArqOrigem);
             entrada = new Scanner(arqLeitura);
-
             saida = new OutputStreamWriter(new FileOutputStream(nomeArqDestino), StandardCharsets.UTF_8);
         } catch (FileNotFoundException erro) {
             System.out.println("Arquivo de origem inexistente!");
@@ -124,28 +123,32 @@ public class ETL {
 
         try {
             Boolean cabecalho = true;
+            int numeroColunasEsperadas = 6; // timestamp, cpu, ram, disco, processos, mac
 
             while (entrada.hasNextLine()) {
                 String linha = entrada.nextLine();
-                String[] valores = linha.split(",");
+                String[] valores = linha.split(",", -1); // -1 para manter campos vazios
 
                 if (cabecalho) {
                     saida.write(linha + "\n");
-
                     cabecalho = false;
-
                 } else {
-                    while (valores.length < 6) {
-                        linha += ",";
-                        valores = linha.split(",");
+                    String[] valoresCompletos = new String[numeroColunasEsperadas];
+
+                    for (int i = 0; i < numeroColunasEsperadas; i++) {
+                        if (i < valores.length && valores[i] != null && !valores[i].trim().isEmpty()) {
+                            valoresCompletos[i] = valores[i];
+                        } else {
+                            valoresCompletos[i] = "0";
+                        }
                     }
 
-                    String ts     = textoLimpo(valores[0]);
-                    Double cpu    = converterDouble(normalizarNumero(textoLimpo(valores[1])));
-                    Double ram    = converterDouble(normalizarNumero(textoLimpo(valores[2])));
-                    Double disco  = converterDouble(normalizarNumero(textoLimpo(valores[3])));
-                    Integer procs = converterInteiro(textoLimpo(valores[4]));
-                    String mac    = textoLimpo(valores[5]);
+                    String ts     = textoLimpo(valoresCompletos[0]);
+                    Double cpu    = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[1])));
+                    Double ram    = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[2])));
+                    Double disco  = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[3])));
+                    Integer procs = converterInteiro(textoLimpo(valoresCompletos[4]));
+                    String mac    = textoLimpo(valoresCompletos[5]);
 
                     String tsFmt = formatarData(ts);
 
