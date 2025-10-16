@@ -272,7 +272,7 @@ public class ETL {
      * - atualizamos contadores e "conjuntos" de totens
      */
 
-    private static void dadosAlertas(String nomeArqOrigem, String nomeArqDestino) {
+    private static void taxaAlertas(String nomeArqOrigem, String nomeArqDestino) {
         FileReader arqLeitura = null;
         Scanner entrada = null;
         OutputStreamWriter saida = null;
@@ -293,6 +293,7 @@ public class ETL {
             Boolean cabecalho = true;
             Integer numeroColunasEsperadas = 6;
             Integer qtdAlertas = 0;
+            Integer qtdLinhas = 0;
             Boolean pular = false;
 
             while (entrada.hasNextLine()) {
@@ -314,6 +315,7 @@ public class ETL {
                     }
 
                     if (!pular) {
+                        qtdLinhas++;
                         String ts     = textoLimpo(valoresCompletos[0]);
                         Double cpu    = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[1])));
                         Double ram    = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[2])));
@@ -328,7 +330,7 @@ public class ETL {
                         if (alertaCpu || alertaRam || alertaDisco) {
                             qtdAlertas++;
                         }
-                        if (qtdAlertas == 12) {
+                        if (qtdAlertas >= 5 && qtdLinhas % 12 == 0) {
                             alerta = true;
                             qtdAlertas = 0;
                         }
@@ -617,7 +619,7 @@ public class ETL {
         limparProcessosParaTrusted("Processos", "Processos_Trusted");
 
         System.out.println("[3/5] Gerando CLIENT (Sistema)...");
-        dadosAlertas("Dados", "alertas");
+        taxaAlertas("Dados", "alertas");
 
         System.out.println("[4/5] Gerando CLIENT (Processos)...");
         // tratarProcessos(SAIDA_PROCESSOS_TRUSTED, SAIDA_PROCESSOS_CLIENT_PASTA, SAIDA_PROCESSOS_CLIENT_RAIZ);
