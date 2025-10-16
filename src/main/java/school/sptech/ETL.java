@@ -301,7 +301,7 @@ public class ETL {
                 String[] valores = linha.split(",", -1);
 
                 if (cabecalho) {
-                    saida.write(linha + "\n");
+                    saida.write("timestamp," + "mac," + "alerta" + "\n");
                     cabecalho = false;
                 } else {
                     String[] valoresCompletos = new String[numeroColunasEsperadas];
