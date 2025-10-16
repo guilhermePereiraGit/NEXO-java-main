@@ -1,5 +1,7 @@
 package school.sptech;
 
+import org.h2.mvstore.db.RowDataType;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
@@ -270,67 +272,91 @@ public class ETL {
      * - atualizamos contadores e "conjuntos" de totens
      */
 
-    private static void tratarDadosSistema(String entrada, String saidaPasta, String saidaRaiz) {
-        try (
-                Scanner leitor = new Scanner(new FileInputStream(new File(entrada)));
-                PrintWriter arquivoSaidaPasta = new PrintWriter(new FileWriter(saidaPasta));
-                PrintWriter arquivoSaidaRaiz  = new PrintWriter(new FileWriter(saidaRaiz))
-        ) {
-            Boolean primeiraLinha = true;
-            String cabecalho = "timestamp,mac,cpu,ram,disco,qtd_processos,alerta_cpu,alerta_ram,alerta_disco,nivel";
-            arquivoSaidaPasta.println(cabecalho);
-            arquivoSaidaRaiz.println(cabecalho);
+    private static void dadosAlertas(String nomeArqOrigem, String nomeArqDestino) {
+        FileReader arqLeitura = null;
+        Scanner entrada = null;
+        OutputStreamWriter saida = null;
+        Boolean deuRuim = false;
+        nomeArqOrigem += ".csv";
+        nomeArqDestino += ".csv";
 
-            while (leitor.hasNextLine()) {
-                String linha = leitor.nextLine();
-                if (primeiraLinha) { primeiraLinha = false; continue; }
-                if (linha.trim().isEmpty()) continue;
+        try {
+            arqLeitura = new FileReader(nomeArqOrigem);
+            entrada = new Scanner(arqLeitura);
+            saida = new OutputStreamWriter(new FileOutputStream(nomeArqDestino), StandardCharsets.UTF_8);
+        } catch (FileNotFoundException erro) {
+            System.out.println("Arquivo de origem inexistente!");
+            deuRuim = true;
+        }
 
-                // ORDEM (TRUSTED): [0]=timestamp, [1]=cpu, [2]=ram, [3]=disco, [4]=qtd_processos, [5]=mac
-                String[] colunas = linha.split(",", -1);
-                if (colunas.length < 6) continue;
+        try {
+            Boolean cabecalho = true;
+            Integer numeroColunasEsperadas = 6;
+            Integer qtdAlertas = 0;
+            Boolean pular = false;
 
-                String  ts    = textoLimpo(colunas[0]);
-                Double  cpu   = converterDouble(colunas[1]);
-                Double  ram   = converterDouble(colunas[2]);
-                Double  disco = converterDouble(colunas[3]);
-                Integer qtd   = converterInteiro(colunas[4]);
-                String  mac   = textoLimpo(colunas[5]);
+            while (entrada.hasNextLine()) {
+                String linha = entrada.nextLine();
+                String[] valores = linha.split(",", -1);
 
-                // Adiciona o totem na lista SEM duplicar
-                adicionarUnico(totensSistema, mac);
-                qtdLeiturasSistema++;
+                if (cabecalho) {
+                    saida.write(linha + "\n");
+                    cabecalho = false;
+                } else {
+                    String[] valoresCompletos = new String[numeroColunasEsperadas];
 
-                // Indicadores de alerta por componente
-                Boolean alertaCpu   = cpu   >= LIMITE_CPU_SISTEMA;
-                Boolean alertaRam   = ram   >= LIMITE_RAM_SISTEMA;
-                Boolean alertaDisco = disco >= LIMITE_DISCO_SISTEMA;
+                    for (int i = 0; i < numeroColunasEsperadas; i++) {
+                        if (i < valores.length && valores[i] != null && !valores[i].trim().isEmpty()) {
+                            valoresCompletos[i] = valores[i];
+                        } else {
+                            pular = true;
+                        }
+                    }
 
-                // Classificação por quantidade de alertas
-                String nivel = classificarNivel(alertaCpu, alertaRam, alertaDisco);
-                if (nivel.equals("OK")) qtdOk++;
-                else if (nivel.equals("ATENCAO")) qtdAtencao++;
-                else if (nivel.equals("PERIGOSO")) qtdPerigoso++;
-                else qtdMuitoPerigoso++;
+                    if (!pular) {
+                        String ts     = textoLimpo(valoresCompletos[0]);
+                        Double cpu    = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[1])));
+                        Double ram    = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[2])));
+                        Double disco  = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[3])));
+                        String mac    = textoLimpo(valoresCompletos[5]);
 
-                // Ex.: formata CPU/RAM/Disco como "xx.x%" e escreve a linha final no CSV
-                //     - Exemplo de percentual: 41.0%
-                //     - Exemplo de indicador: "SIM" / "NAO"
-                String linhaFormatada = ts + "," + mac + "," +
-                        formatarPct(cpu) + "," + formatarPct(ram) + "," + formatarPct(disco) + "," +
-                        qtd + "," +
-                        (alertaCpu ? "SIM" : "NAO") + "," +
-                        (alertaRam ? "SIM" : "NAO") + "," +
-                        (alertaDisco ? "SIM" : "NAO") + "," +
-                        nivel;
+                        Boolean alertaCpu   = cpu   >= LIMITE_CPU_SISTEMA;
+                        Boolean alertaRam   = ram   >= LIMITE_RAM_SISTEMA;
+                        Boolean alertaDisco = disco >= LIMITE_DISCO_SISTEMA;
+                        Boolean alerta = false;
 
-                // Grava a mesma linha: 1) na pasta client  2) na raiz do projeto
-                arquivoSaidaPasta.println(linhaFormatada);
-                arquivoSaidaRaiz.println(linhaFormatada);
+                        if (alertaCpu || alertaRam || alertaDisco) {
+                            qtdAlertas++;
+                        }
+                        if (qtdAlertas == 12) {
+                            alerta = true;
+                            qtdAlertas = 0;
+                        }
+
+                        String tsFmt = formatarData(ts);
+
+                        saida.write(tsFmt + "," + mac + "," + alerta + "\n");
+                    }
+                    pular = false;
+                }
+            }
+        } catch (IOException erro) {
+            System.out.println("Erro ao ler ou gravar o arquivo!");
+            erro.printStackTrace();
+            deuRuim = true;
+        } finally {
+            try {
+                if (entrada != null) entrada.close();
+                if (arqLeitura != null) arqLeitura.close();
+                if (saida != null) saida.close();
+            } catch (IOException erro) {
+                System.out.println("Erro ao fechar o arquivo!");
+                deuRuim = true;
             }
 
-        } catch (Exception e) {
-            System.out.println("Erro (CLIENT Dados): " + e.getMessage());
+            if (deuRuim) {
+                System.exit(1);
+            }
         }
     }
 
@@ -591,7 +617,7 @@ public class ETL {
         limparProcessosParaTrusted("Processos", "Processos_Trusted");
 
         System.out.println("[3/5] Gerando CLIENT (Sistema)...");
-        // tratarDadosSistema(SAIDA_DADOS_TRUSTED, SAIDA_DADOS_CLIENT_PASTA, SAIDA_DADOS_CLIENT_RAIZ);
+        dadosAlertas("Dados", "alertas");
 
         System.out.println("[4/5] Gerando CLIENT (Processos)...");
         // tratarProcessos(SAIDA_PROCESSOS_TRUSTED, SAIDA_PROCESSOS_CLIENT_PASTA, SAIDA_PROCESSOS_CLIENT_RAIZ);
