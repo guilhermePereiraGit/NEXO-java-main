@@ -1,9 +1,12 @@
 package school.sptech;
 
 import org.h2.mvstore.db.RowDataType;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Scanner;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -33,10 +36,9 @@ import java.util.ArrayList;
 public class ETL {
 
     // 1) LIMITES / PARÂMETROS
-
-    static Double LIMITE_CPU_SISTEMA   = 6.5;   // %
-    static Double LIMITE_RAM_SISTEMA   = 82.0;  // %
-    static Double LIMITE_DISCO_SISTEMA = 39.0;  // %
+    static Double LIMITE_CPU_SISTEMA   = null;   // %
+    static Double LIMITE_RAM_SISTEMA   = null;  // %
+    static Double LIMITE_DISCO_SISTEMA = null;  // %
     static Integer LIMITE_QTD_PROCESSOS = 341;
 
     static Double LIMITE_CPU_PROCESSO   = 1.0;   // %
@@ -502,6 +504,46 @@ public class ETL {
     // 8) EXECUÇÃO
 
     public static void main(String[] args) {
+        // Conectando ao banco de dados remoto e selecionando parâmetros
+        Connection connection = new Connection();
+        JdbcTemplate con = new JdbcTemplate(connection.getDataSource());
+
+        List<Parametro> listaParametros = con.query("SELECT m.nome as modelo, tp.nome as parametro, limite " +
+                        "FROM Parametro " +
+                        "INNER JOIN Tipo_Parametro tp ON tp.idTipo_Parametro = Parametro.fkTipoParametro " +
+                        "INNER JOIN modelo m ON m.idModelo = Parametro.fkModelo;",
+                new BeanPropertyRowMapper<>(Parametro.class));
+
+        // Definindo parâmetros
+        // CPU:
+        for (Parametro p : listaParametros) {
+            String parametroLowerCase = p.getParametro().toLowerCase();
+            Boolean encontrado = false;
+            if (parametroLowerCase.contains("cpu") && !encontrado) {
+                LIMITE_CPU_SISTEMA = p.getLimite();
+                encontrado = true;
+            }
+        }
+
+        // RAM:
+        for (Parametro p : listaParametros) {
+            String parametroLowerCase = p.getParametro().toLowerCase();
+            Boolean encontrado = false;
+            if (parametroLowerCase.contains("ram") && !encontrado) {
+                LIMITE_RAM_SISTEMA = p.getLimite();
+                encontrado = true;
+            }
+        }
+
+        // Disco:
+        for (Parametro p : listaParametros) {
+            String parametroLowerCase = p.getParametro().toLowerCase();
+            Boolean encontrado = false;
+            if (parametroLowerCase.contains("disco") && !encontrado) {
+                LIMITE_DISCO_SISTEMA = p.getLimite();
+                encontrado = true;
+            }
+        }
 
         // UX de progresso
         System.out.println("[1/4] Limpando RAW -> TRUSTED (Dados)...");
