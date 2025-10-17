@@ -12,6 +12,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 
+import static school.sptech.IntegracaoJira.criarChamado;
+import static school.sptech.NotificadorSlack.enviarMensagem;
+
 /**
  * ============================================================
  *                          ETL
@@ -305,15 +308,28 @@ public class ETL {
                         Boolean alertaDisco     = disco >= limiteDisco;
                         Boolean alertaProcessos = procs >= LIMITE_QTD_PROCESSOS;
                         Boolean alerta = false;
+                        String parametrosUltrapassados = "";
 
-                        if (alertaCpu) { qtdAlertas++; }
-                        if (alertaRam) { qtdAlertas++; }
-                        if (alertaDisco) { qtdAlertas++; }
+                        if (alertaCpu) {
+                            qtdAlertas++;
+                            parametrosUltrapassados += " CPU, ";
+                        }
+                        if (alertaRam) {
+                            qtdAlertas++;
+                            parametrosUltrapassados += " RAM, ";
+                        }
+                        if (alertaDisco) {
+                            qtdAlertas++;
+                            parametrosUltrapassados += " Uso de disco, ";
+                        }
                         if (alertaProcessos) { qtdAlertas++; }
 
 
                         if (qtdAlertas >= 7 && qtdLinhas % 12 == 0) {
                             alerta = true;
+                            //enviarMensagem("Alerta! Parâmetro(s)" + parametrosUltrapassados + "acima do limite no totem " + totem.getNumMac() + " às " + ts);
+                            criarChamado("Totem " + totem.getNumMac() + " acima do limite de segurança", "O totem de MAC " + totem.getNumMac() +
+                                    "ultrapassou o(s) limite(s) estabelecidos para seus parâmetros. Parâmetros ultrapassados: " + parametrosUltrapassados);
                             qtdAlertas = 0;
                         }
 
@@ -431,9 +447,15 @@ public class ETL {
                         Boolean alertaDisco     = disco >= limiteDisco;
                         Boolean alertaProcessos = procs >= LIMITE_QTD_PROCESSOS;
 
-                        if (alertaCpu) { qtdAlertas++; }
-                        if (alertaRam) { qtdAlertas++; }
-                        if (alertaDisco) { qtdAlertas++; }
+                        if (alertaCpu) {
+                            qtdAlertas++;
+                        }
+                        if (alertaRam) {
+                            qtdAlertas++;
+                        }
+                        if (alertaDisco) {
+                            qtdAlertas++;
+                        }
                         if (alertaProcessos) { qtdAlertas++; }
 
                         if (cpu > maxCPU) {
