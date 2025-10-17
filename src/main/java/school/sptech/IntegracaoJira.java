@@ -4,13 +4,15 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Base64;
+import java.util.Base64;import io.github.cdimascio.dotenv.Dotenv;
+
 
 public class IntegracaoJira {
     public static void criarChamado(String summary, String description) throws IOException {
-        String jiraUrl = "https://nexoadm.atlassian.net/rest/servicedeskapi/request";
-        String email = "nexoadm9328@outlook.com";
-        String apiToken = "ATATT3xFfGF0AjNvGjQtrKdVrlAXOvYIy_IfpUkhBMMxsEWXRiKrgN_0VaxPH5AamAxc4BFBKfmohZHn_8l5fUDB83ZOjGqBleL6ztAfOfEJsfboM2_ism62a2t_lWZ48PgoiP-KGT9Xh1saeHF8ZPa1UPIWbsgX0ItLCNZs0Y8jBV3V_hRR3Gc=AF1CC7F7";
+        Dotenv dotenv = Dotenv.load();
+        String jiraUrl = dotenv.get("JIRA_URL");
+        String email = dotenv.get("JIRA_EMAIL");
+        String apiToken = dotenv.get("JIRA_API_TOKEN");
 
         String auth = Base64.getEncoder().encodeToString((email + ":" + apiToken).getBytes());
 

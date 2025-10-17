@@ -327,7 +327,7 @@ public class ETL {
 
                         if (qtdAlertas >= 7 && qtdLinhas % 12 == 0) {
                             alerta = true;
-                            //enviarMensagem("Alerta! Parâmetro(s)" + parametrosUltrapassados + "acima do limite no totem " + totem.getNumMac() + " às " + ts);
+                            enviarMensagem("Alerta! Parâmetro(s)" + parametrosUltrapassados + "acima do limite no totem " + totem.getNumMac() + " às " + ts);
                             criarChamado("Totem " + totem.getNumMac() + " acima do limite de segurança", "O totem de MAC " + totem.getNumMac() +
                                     "ultrapassou o(s) limite(s) estabelecidos para seus parâmetros. Parâmetros ultrapassados: " + parametrosUltrapassados);
                             qtdAlertas = 0;

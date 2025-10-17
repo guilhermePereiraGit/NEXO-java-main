@@ -3,11 +3,13 @@ package school.sptech;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URL;import io.github.cdimascio.dotenv.Dotenv;
+
 
 public class NotificadorSlack {
     public static void enviarMensagem(String message) throws IOException {
-        String webhookUrl = "https://hooks.slack.com/services/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";
+        Dotenv dotenv = Dotenv.load();
+        String webhookUrl = dotenv.get("SLACK_WEBHOOK");
 
         String payload = "{\"text\": \"" + message + "\"}";
 
