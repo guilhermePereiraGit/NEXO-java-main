@@ -1,49 +1,30 @@
 package school.sptech;
 
 public class Parametro {
-    private String modelo;
-    private String parametro;
-    private Double limite;
+    private Integer idParametro;
+    private Integer limite;
+    private TipoParametro tipoParametro;
+    private Modelo modelo;
 
     public Parametro() {
     }
 
-    public Parametro(String modelo, String parametro, Double limite) {
-        this.modelo = modelo;
-        this.parametro = parametro;
+    public Parametro(Integer idParametro, Integer limite, TipoParametro tipoParametro, Modelo modelo) {
+        this.idParametro = idParametro;
         this.limite = limite;
-    }
-
-    @Override
-    public String toString() {
-        return "Parametro{" +
-                "modelo='" + modelo + '\'' +
-                ", parametro='" + parametro + '\'' +
-                ", limite=" + limite +
-                '}';
-    }
-
-    public String getModelo() {
-        return modelo;
-    }
-
-    public void setModelo(String modelo) {
+        this.tipoParametro = tipoParametro;
         this.modelo = modelo;
     }
 
-    public String getParametro() {
-        return parametro;
-    }
+    public Integer getIdParametro() { return idParametro; }
+    public void setIdParametro(Integer idParametro) { this.idParametro = idParametro; }
 
-    public void setParametro(String parametro) {
-        this.parametro = parametro;
-    }
+    public Integer getLimite() { return limite; }
+    public void setLimite(Integer limite) { this.limite = limite; }
 
-    public Double getLimite() {
-        return limite;
-    }
+    public TipoParametro getTipoParametro() { return tipoParametro; }
+    public void setTipoParametro(TipoParametro tipoParametro) { this.tipoParametro = tipoParametro; }
 
-    public void setLimite(Double limite) {
-        this.limite = limite;
-    }
+    public Modelo getModelo() { return modelo; }
+    public void setModelo(Modelo modelo) { this.modelo = modelo; }
 }
