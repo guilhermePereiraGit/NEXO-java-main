@@ -1,5 +1,6 @@
 package school.sptech;
 
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
@@ -9,6 +10,7 @@ import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.endpoints.internal.Value;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -110,28 +112,32 @@ public class ETL {
         Scanner entrada = null;
         Boolean deuRuim = false;
         macOrigem = macOrigem.trim();
+        Connection connection = new Connection();
+        JdbcTemplate con = new JdbcTemplate(connection.getDataSource());
 
         try {
             // Tentativa de ler arquivo no S3
             GetObjectRequest getRequest = GetObjectRequest.builder()
                     .bucket(BUCKET_RAW)
-                    .key("registros/" + macOrigem + "/dados.csv")
+                    .key("/registros/" + macOrigem + "/dados.csv")
                     .build();
 
             ResponseInputStream<GetObjectResponse> s3objectStream = s3Client.getObject(getRequest);
             entrada = new Scanner(new InputStreamReader(s3objectStream, StandardCharsets.UTF_8));
-
             Boolean cabecalho = true;
             Integer numeroColunasEsperadas = 6;
             Map<String, List<String>> linhasPorMac = new HashMap<>();
             String headerLine = null;
+
+            String modelo = associandoMacComModeloEmpresa(con, macOrigem).get(0).getNome();
+            Integer empresa = associandoMacComModeloEmpresa(con, macOrigem).get(0).getFkEmpresa();
 
             while (entrada.hasNextLine()) {
                 String linha = entrada.nextLine();
                 String[] valores = linha.split(",", -1);
 
                 if (cabecalho) {
-                    headerLine = linha;
+                    headerLine = linha + ",modelo,idEmpresa";
                     cabecalho = false;
                 } else {
                     String[] valoresCompletos = new String[numeroColunasEsperadas];
@@ -151,7 +157,7 @@ public class ETL {
                     String mac    = textoLimpo(valoresCompletos[5]);
                     String tsFmt  = formatarData(ts);
 
-                    String linhaProcessada = tsFmt + "," + cpu + "," + ram + "," + disco + "," + procs + "," + mac;
+                    String linhaProcessada = tsFmt + "," + cpu + "," + ram + "," + disco + "," + procs + "," + mac + "," + modelo + "," + empresa;
 
                     linhasPorMac.computeIfAbsent(mac, k -> new ArrayList<>()).add(linhaProcessada);
                 }
@@ -192,11 +198,13 @@ public class ETL {
         Scanner entrada = null;
         Boolean deuRuim = false;
         macOrigem = macOrigem.trim();
+        Connection connection = new Connection();
+        JdbcTemplate con = new JdbcTemplate(connection.getDataSource());
 
         try {
             GetObjectRequest getRequest = GetObjectRequest.builder()
                     .bucket(BUCKET_RAW)
-                    .key("registros/" + macOrigem + "/processos.csv")
+                    .key("/registros/" + macOrigem + "/processos.csv")
                     .build();
 
             ResponseInputStream<GetObjectResponse> s3objectStream = s3Client.getObject(getRequest);
@@ -207,12 +215,17 @@ public class ETL {
             Map<String, List<String>> linhasPorMac = new HashMap<>();
             String headerLine = null;
 
+            System.out.println(associandoMacComModeloEmpresa(con, macOrigem).get(0));
+
+            String modelo = associandoMacComModeloEmpresa(con, macOrigem).get(0).getNome();
+            Integer empresa = associandoMacComModeloEmpresa(con, macOrigem).get(0).getFkEmpresa();
+
             while (entrada.hasNextLine()) {
                 String linha = entrada.nextLine();
                 String[] valores = linha.split(",", -1);
 
                 if (cabecalho) {
-                    headerLine = linha;
+                    headerLine = linha + ",modelo,idEmpresa";
                     cabecalho = false;
                 } else {
                     String[] valoresCompletos = new String[numeroColunasEsperadas];
@@ -232,7 +245,7 @@ public class ETL {
                     String mac    = textoLimpo(valoresCompletos[5]);
                     String tsFmt  = formatarData(ts);
 
-                    String linhaProcessada = tsFmt + "," + cpu + "," + ram + "," + disco + "," + nomeProc + "," + mac;
+                    String linhaProcessada = tsFmt + "," + cpu + "," + ram + "," + disco + "," + nomeProc + "," + mac + "," + modelo + "," + empresa;
                     linhasPorMac.computeIfAbsent(mac, k -> new ArrayList<>()).add(linhaProcessada);
                 }
             }
@@ -285,6 +298,7 @@ public class ETL {
             arqLeitura = new FileReader(nomeDirOrigem);
             entrada = new Scanner(arqLeitura);
             saida = new OutputStreamWriter(new FileOutputStream(nomeDirDestino), StandardCharsets.UTF_8);
+
         } catch (FileNotFoundException erro) {
             System.out.println("Arquivo de origem inexistente!");
             deuRuim = true;
@@ -598,6 +612,19 @@ public class ETL {
         }
     }
 
+    public static List<Modelo> associandoMacComModeloEmpresa(JdbcTemplate con, String mac) {
+
+        List<Modelo> modeloEmpresa = con.query("""
+                SELECT m.idModelo, m.nome AS modeloNome, m.criador, m.tipo, m.descricao_arquitetura AS descricaoArquitetura,
+                m.status AS statusModelo, m.fkEmpresa
+                FROM totem t
+                INNER JOIN modelo m ON t.fkModelo = m.idModelo
+                WHERE t.numMac = ?;
+                """, new ModeloRowMapper(), mac);
+
+        return modeloEmpresa;
+    }
+
     public static List<Totem> carregarTotensComLimites(JdbcTemplate con) {
 
         List<Totem> totens = con.query("""
@@ -716,8 +743,8 @@ public class ETL {
         for (Totem totem : totens) {
             limparDadosParaTrusted(totem.getNumMac());
             limparProcessosParaTrusted(totem.getNumMac());
-            taxaAlertas("Dados", "alertas", totem);
-            relatorioTotem("Dados", "relatórioTotem", totem);
+            // taxaAlertas("Dados", "alertas", totem);
+            // relatorioTotem("Dados", "relatórioTotem", totem);
         }
         System.out.println("[1/4] Limpando RAW -> TRUSTED (Dados)...");
 

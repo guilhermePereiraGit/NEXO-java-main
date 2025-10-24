@@ -63,4 +63,18 @@ public class Modelo {
 
     public List<Parametro> getParametros() { return parametros; }
     public void setParametros(List<Parametro> parametros) { this.parametros = parametros; }
+
+    @Override
+    public String toString() {
+        return "Modelo{" +
+                "idModelo=" + idModelo +
+                ", nome='" + nome + '\'' +
+                ", criador='" + criador + '\'' +
+                ", tipo='" + tipo + '\'' +
+                ", descricaoArquitetura='" + descricaoArquitetura + '\'' +
+                ", status='" + status + '\'' +
+                ", fkEmpresa=" + fkEmpresa +
+                ", parametros=" + parametros +
+                '}';
+    }
 }
