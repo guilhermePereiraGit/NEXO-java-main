@@ -49,18 +49,6 @@ import static school.sptech.NotificadorSlack.enviarMensagem;
  * ============================================================
  */
 public class ETL {
-
-    // LIMITES / PARÂMETROS
-    static Integer LIMITE_QTD_PROCESSOS = 341;
-
-    static Double LIMITE_CPU_PROCESSO   = 1.0;   // %
-    static Double LIMITE_RAM_PROCESSO   = 5.0;   // %
-    static Double LIMITE_DISCO_PROCESSO = 300.0; // MB escritos
-
-    static String[] PROCESSOS_SUSPEITOS = {
-            "MemCompression", "Discord.exe", "Code.exe"
-    };
-
     // FORMATO DE DATA — Python usa underline
 
     static DateTimeFormatter FORMATO_ENTRADA = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
@@ -76,36 +64,25 @@ public class ETL {
      * - Mantém exatamente as mesmas colunas do RAW (sem adicionar nada)
      */
 
-    static Dotenv dotenv = Dotenv.load();
-    private static String BUCKET_RAW = dotenv.get("BUCKET_RAW");
-    private static String BUCKET_TRUSTED = dotenv.get("BUCKET_TRUSTED");
+    private static String BUCKET_RAW = "bucket-raw-nexo";
+    private static String BUCKET_TRUSTED = "bucket-trusted-nexo";
+    private static String BUCKET_CLIENT = "bucket-client-nexo";
     private static Region S3_REGION = Region.US_EAST_1;
     private static S3Client s3Client;
     static {
         try {
-            dotenv = Dotenv.load();
-
-            String accessKey = dotenv.get("AWS_ACCESS_KEY_ID").trim();
-            String secretKey = dotenv.get("AWS_SECRET_ACCESS_KEY").trim();
-            String sessionToken = dotenv.get("AWS_SESSION_TOKEN").trim();
-
-            AwsSessionCredentials sessionCreds = AwsSessionCredentials.create(
-                    accessKey,
-                    secretKey,
-                    sessionToken
-            );
-
             s3Client = S3Client.builder()
                     .region(S3_REGION)
-                    .credentialsProvider(StaticCredentialsProvider.create(sessionCreds))
+                    .credentialsProvider(DefaultCredentialsProvider.create())
                     .build();
 
         } catch (Exception e) {
-            System.out.println("Erro ao criar cliente S3 com credenciais temporárias!");
+            System.out.println("Erro ao criar cliente S3 com credenciais automáticas!");
             e.printStackTrace();
             throw new RuntimeException(e);
         }
     }
+
 
 
     private static void limparDadosParaTrusted(String macOrigem) {
@@ -286,38 +263,35 @@ public class ETL {
      * - atualizamos contadores e "conjuntos" de totens
      */
 
-    private static void taxaAlertas(String nomeDirOrigem, String nomeDirDestino, Totem totem) {
-        FileReader arqLeitura = null;
+    private static void taxaAlertas(Totem totem) {
         Scanner entrada = null;
         OutputStreamWriter saida = null;
         Boolean deuRuim = false;
-        nomeDirOrigem += ".csv";
-        nomeDirDestino += totem.getNumMac() + ".csv";
 
         try {
-            arqLeitura = new FileReader(nomeDirOrigem);
-            entrada = new Scanner(arqLeitura);
-            saida = new OutputStreamWriter(new FileOutputStream(nomeDirDestino), StandardCharsets.UTF_8);
+            GetObjectRequest getRequest = GetObjectRequest.builder()
+                    .bucket(BUCKET_TRUSTED)
+                    .key("registros/" + totem.getNumMac() + "/dados.csv")
+                    .build();
 
-        } catch (FileNotFoundException erro) {
-            System.out.println("Arquivo de origem inexistente!");
-            deuRuim = true;
-        }
+            ResponseInputStream<GetObjectResponse> s3objectStream = s3Client.getObject(getRequest);
+            entrada = new Scanner(new InputStreamReader(s3objectStream, StandardCharsets.UTF_8));
 
-        try {
+            saida = new OutputStreamWriter(new FileOutputStream(totem.getNumMac() + ".csv"), StandardCharsets.UTF_8);
+
             Boolean cabecalho = true;
             Integer numeroColunasEsperadas = 6;
             Integer qtdAlertas = 0;
             Integer qtdLinhas = 0;
             Boolean pular = false;
 
-
             Integer limiteCPU = null;
             Integer limiteRAM = null;
             Integer limiteDisco = null;
+            Integer limiteProcessos = null;
             for (Parametro p : totem.getModelo().getParametros()) {
                 String parametroLowerCase = p.getTipoParametro().getNome().toLowerCase();
-                if(p.getLimite() != null) {
+                if (p.getLimite() != null) {
                     if (parametroLowerCase.contains("cpu")) {
                         limiteCPU = p.getLimite();
                     }
@@ -327,21 +301,26 @@ public class ETL {
                     if (parametroLowerCase.contains("disco")) {
                         limiteDisco = p.getLimite();
                     }
+                    if (parametroLowerCase.contains("processos")) {
+                        limiteProcessos = p.getLimite();
+                    }
                 }
             }
 
+            String parametrosUltrapassados = null;
+            String ts = null;
             while (entrada.hasNextLine()) {
                 String linha = entrada.nextLine();
                 String[] valores = linha.split(",", -1);
+                parametrosUltrapassados = "";
 
                 if (cabecalho) {
-                    saida.write("timestamp" + "," + "mac" + "," + "alertaJira" + "," + "cpu" + "," + "ram" + "," + "disco" + "," + "qtdProcessos" + "\n");
+                    saida.write("timestamp,mac,alertaJira,cpu,ram,disco,qtdProcessos\n");
                     cabecalho = false;
                 } else {
                     String[] valoresCompletos = new String[numeroColunasEsperadas];
-
                     for (int i = 0; i < numeroColunasEsperadas; i++) {
-                        if (i < valores.length && valores[i] != null && !valores[i].trim().isEmpty()) {
+                        if (i < valores.length && valores[i] != null && !valores[i].trim().isEmpty() && !valores[i].contains("dado_perdido")) {
                             valoresCompletos[i] = valores[i];
                         } else {
                             pular = true;
@@ -350,19 +329,18 @@ public class ETL {
 
                     if (!pular) {
                         qtdLinhas++;
-                        String ts     = textoLimpo(valoresCompletos[0]);
-                        Double cpu    = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[1])));
-                        Double ram    = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[2])));
-                        Double disco  = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[3])));
+                        ts = textoLimpo(valoresCompletos[0]);
+                        Double cpu = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[1])));
+                        Double ram = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[2])));
+                        Double disco = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[3])));
                         Integer procs = converterInteiro(textoLimpo(valoresCompletos[4]));
-                        String mac    = textoLimpo(valoresCompletos[5]);
+                        String mac = textoLimpo(valoresCompletos[5]);
 
-                        Boolean alertaCpu       = cpu   >= limiteCPU;
-                        Boolean alertaRam       = ram   >= limiteRAM;
-                        Boolean alertaDisco     = disco >= limiteDisco;
-                        Boolean alertaProcessos = procs >= LIMITE_QTD_PROCESSOS;
+                        Boolean alertaCpu = cpu >= limiteCPU;
+                        Boolean alertaRam = ram >= limiteRAM;
+                        Boolean alertaDisco = disco >= limiteDisco;
+                        Boolean alertaProcessos = procs >= limiteProcessos;
                         Boolean alerta = false;
-                        String parametrosUltrapassados = "";
 
                         if (alertaCpu) {
                             qtdAlertas++;
@@ -376,184 +354,59 @@ public class ETL {
                             qtdAlertas++;
                             parametrosUltrapassados += " Uso de disco, ";
                         }
-                        if (alertaProcessos) { qtdAlertas++; }
-
+                        if (alertaProcessos) {
+                            qtdAlertas++;
+                            parametrosUltrapassados += " Quantidade de processos, ";
+                        }
 
                         if (qtdAlertas >= 7 && qtdLinhas % 12 == 0) {
                             alerta = true;
-                            enviarMensagem("Alerta! Parâmetro(s)" + parametrosUltrapassados + "acima do limite no totem " + totem.getNumMac() + " às " + ts);
-                            criarChamado("Totem " + totem.getNumMac() + " acima do limite de segurança", "O totem de MAC " + totem.getNumMac() +
-                                    "ultrapassou o(s) limite(s) estabelecidos para seus parâmetros. Parâmetros ultrapassados: " + parametrosUltrapassados);
                             qtdAlertas = 0;
                         }
 
                         String tsFmt = formatarData(ts);
-
                         saida.write(tsFmt + "," + mac + "," + alerta + "," + alertaCpu + "," + alertaRam + "," + alertaDisco + "," + alertaProcessos + "\n");
                     }
                     pular = false;
                 }
             }
-        } catch (IOException erro) {
-            System.out.println("Erro ao ler ou gravar o arquivo!");
+            if(!parametrosUltrapassados.isBlank()) {
+                enviarMensagem("Alerta! Parâmetro(s)" + parametrosUltrapassados + "acima do limite no totem " + totem.getNumMac() + " às " + ts);
+                criarChamado("Totem " + totem.getNumMac() + " acima do limite de segurança",
+                        "O totem de MAC " + totem.getNumMac() +
+                                "ultrapassou o(s) limite(s) estabelecidos para seus parâmetros. Parâmetros ultrapassados: " + parametrosUltrapassados);
+            }
+
+            String objetoSaidaKey = "alertas/" + totem.getNumMac() + "/alertas.csv";
+            PutObjectRequest putRequest = PutObjectRequest.builder()
+                    .bucket(BUCKET_CLIENT)
+                    .key(objetoSaidaKey)
+                    .contentType("text/csv")
+                    .build();
+
+            s3Client.putObject(putRequest,
+                    RequestBody.fromString(saida.toString()));
+
+            System.out.println("Arquivo de alertas enviado para S3: s3://" + BUCKET_CLIENT + "/" + objetoSaidaKey);
+        } catch (NoSuchKeyException e) {
+            System.out.println("Arquivo trusted não existe para o MAC " + totem.getNumMac() + ": " + e.getMessage());
+            deuRuim = true;
+        } catch (Exception erro) {
+            System.out.println("Erro ao acessar S3 Trusted!");
             erro.printStackTrace();
             deuRuim = true;
         } finally {
             try {
                 if (entrada != null) entrada.close();
-                if (arqLeitura != null) arqLeitura.close();
                 if (saida != null) saida.close();
             } catch (IOException erro) {
                 System.out.println("Erro ao fechar o arquivo!");
                 deuRuim = true;
             }
 
-            if (deuRuim) {
-                System.exit(1);
-            }
+            if (deuRuim) System.exit(1);
         }
     }
-
-    private static void relatorioTotem(String nomeDirOrigem, String nomeDirDestino, Totem totem) {
-        FileReader arqLeitura = null;
-        Scanner entrada = null;
-        OutputStreamWriter saida = null;
-        Boolean deuRuim = false;
-        nomeDirOrigem += ".csv";
-        nomeDirDestino += totem.getNumMac() + ".csv";
-
-        try {
-            arqLeitura = new FileReader(nomeDirOrigem);
-            entrada = new Scanner(arqLeitura);
-            saida = new OutputStreamWriter(new FileOutputStream(nomeDirDestino), StandardCharsets.UTF_8);
-        } catch (FileNotFoundException erro) {
-            System.out.println("Arquivo de origem inexistente!");
-            deuRuim = true;
-        }
-
-        try {
-            Boolean cabecalho = true;
-            Integer numeroColunasEsperadas = 6;
-            Integer qtdAlertas = 0;
-            Integer totalAlertas = 0;
-            Integer qtdAtencao = 0;
-            Integer qtdPerigo = 0;
-            Integer qtdCritico = 0;
-            Integer qtdLinhas = 0;
-            Double maxCPU = 0.0;
-            Double maxRam = 0.0;
-            Double maxDisco = 0.0;
-            Integer maxProcesosRegistrados = 0;
-            Boolean pular = false;
-            String ts = "";
-            String mac = "";
-
-            Integer limiteCPU = 0;
-            Integer limiteRAM = 0;
-            Integer limiteDisco = 0;
-            for (Parametro p : totem.getModelo().getParametros()) {
-                String parametroLowerCase = p.getTipoParametro().getNome().toLowerCase();
-                if (parametroLowerCase.contains("cpu")) {
-                    limiteCPU = p.getLimite();
-                }
-                if (parametroLowerCase.contains("ram")) {
-                    limiteRAM = p.getLimite();
-                }
-                if (parametroLowerCase.contains("disco")) {
-                    limiteDisco = p.getLimite();
-                }
-            }
-
-            while (entrada.hasNextLine()) {
-                String linha = entrada.nextLine();
-                String[] valores = linha.split(",", -1);
-
-                if (cabecalho) {
-                    saida.write("timestamp" + "," + "mac" + "," + "totalAlertas" + "," + "alertasAtencao" + "," +
-                            "alertasPerigo" + "," + "alertasCritico" + "," + "maxCpu" + "," +
-                            "maxRam" + "," + "maxDisco" + "," + "qtdMaxProcessos" + "\n");
-
-                    cabecalho = false;
-                } else {
-                    String[] valoresCompletos = new String[numeroColunasEsperadas];
-
-
-
-                    for (int i = 0; i < numeroColunasEsperadas; i++) {
-                        if (i < valores.length && valores[i] != null && !valores[i].trim().isEmpty()) {
-                            valoresCompletos[i] = valores[i];
-                        } else {
-                            pular = true;
-                        }
-                    }
-
-                    if (!pular) {
-                        qtdLinhas++;
-                        ts            = textoLimpo(valoresCompletos[0]);
-                        Double cpu    = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[1])));
-                        Double ram    = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[2])));
-                        Double disco  = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[3])));
-                        Integer procs = converterInteiro(textoLimpo(valoresCompletos[4]));
-                        mac           = textoLimpo(valoresCompletos[5]);
-
-                        Boolean alertaCpu       = cpu   >= limiteCPU;
-                        Boolean alertaRam       = ram   >= limiteRAM;
-                        Boolean alertaDisco     = disco >= limiteDisco;
-                        Boolean alertaProcessos = procs >= LIMITE_QTD_PROCESSOS;
-
-                        if (alertaCpu) {
-                            qtdAlertas++;
-                        }
-                        if (alertaRam) {
-                            qtdAlertas++;
-                        }
-                        if (alertaDisco) {
-                            qtdAlertas++;
-                        }
-                        if (alertaProcessos) { qtdAlertas++; }
-
-                        if (cpu > maxCPU) {
-                            maxCPU = cpu;
-                        }
-                        if (ram > maxRam) {
-                            maxRam = ram;
-                        }
-                        if (disco > maxDisco) {
-                            maxDisco = disco;
-                        }
-                        if (procs > maxProcesosRegistrados) {
-                            maxProcesosRegistrados = procs;
-                        }
-
-                    }
-                    pular = false;
-                }
-            }
-            String tsFmt = formatarData(ts);
-            saida.write(tsFmt + "," + mac + "," + totalAlertas + "," + qtdAtencao + "," +
-                    qtdPerigo + "," + qtdCritico + "," + maxCPU + "," + maxRam + "," +
-                    maxDisco + "," + maxProcesosRegistrados + "\n");
-
-        } catch (IOException erro) {
-            System.out.println("Erro ao ler ou gravar o arquivo!");
-            erro.printStackTrace();
-            deuRuim = true;
-        } finally {
-            try {
-                if (entrada != null) entrada.close();
-                if (arqLeitura != null) arqLeitura.close();
-                if (saida != null) saida.close();
-            } catch (IOException erro) {
-                System.out.println("Erro ao fechar o arquivo!");
-                deuRuim = true;
-            }
-
-            if (deuRuim) {
-                System.exit(1);
-            }
-        }
-    }
-
 
     // HELPERS
 
@@ -686,7 +539,7 @@ public class ETL {
                     }
                 }
             } catch (NoSuchKeyException e) {
-                // arquivo não existe: será criado
+                // Se o arquivo não existir, tenta criar
                 System.out.println("Arquivo trusted não existe. Será criado: " + s3Key);
             }
 
@@ -713,7 +566,6 @@ public class ETL {
             }
 
             // Upload
-            // (S3 cria "diretórios" automaticamente, então não precisa criar pasta explicitamente)
             PutObjectRequest putReq = PutObjectRequest.builder()
                     .bucket(BUCKET_TRUSTED)
                     .key(s3Key)
@@ -743,15 +595,12 @@ public class ETL {
         for (Totem totem : totens) {
             limparDadosParaTrusted(totem.getNumMac());
             limparProcessosParaTrusted(totem.getNumMac());
-            // taxaAlertas("Dados", "alertas", totem);
-            // relatorioTotem("Dados", "relatórioTotem", totem);
+            taxaAlertas(totem);
         }
-        System.out.println("[1/4] Limpando RAW -> TRUSTED (Dados)...");
+        System.out.println("[1/3] Limpando RAW -> TRUSTED (Dados)...");
 
-        System.out.println("[2/4] Limpando RAW -> TRUSTED (Processos)...");
+        System.out.println("[2/3] Limpando RAW -> TRUSTED (Processos)...");
 
-        System.out.println("[3/4] Gerando Taxa de Alertas...");
-
-        System.out.println("[4/4] Gerando Relatório do Totem (Processos)...");
+        System.out.println("[3/3] Gerando Taxa de Alertas...");
     }
 }
