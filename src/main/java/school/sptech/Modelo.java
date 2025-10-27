@@ -6,9 +6,7 @@ import java.util.List;
 public class Modelo {
     private Integer idModelo;
     private String nome;
-    private String criador;
-    private String tipo;
-    private String descricaoArquitetura;
+    private String descricaoArq;
     private String status;
     private Integer fkEmpresa;
     private List<Parametro> parametros = new ArrayList<>();
@@ -16,25 +14,21 @@ public class Modelo {
     public Modelo() {
     }
 
-    public Modelo(Integer idModelo, String nome, String criador, String tipo,
-                  String descricaoArquitetura, String status, Integer fkEmpresa) {
+    public Modelo(Integer idModelo, String nome,
+                  String descricaoArq, String status, Integer fkEmpresa) {
         this.idModelo = idModelo;
         this.nome = nome;
-        this.criador = criador;
-        this.tipo = tipo;
-        this.descricaoArquitetura = descricaoArquitetura;
+        this.descricaoArq = descricaoArq;
         this.status = status;
         this.fkEmpresa = fkEmpresa;
         this.parametros = new ArrayList<>();
     }
 
-    public Modelo(Integer idModelo, String nome, String criador, String tipo,
-                  String descricaoArquitetura, String status, Integer fkEmpresa, List<Parametro> parametros) {
+    public Modelo(Integer idModelo, String nome,
+                  String descricaoArq, String status, Integer fkEmpresa, List<Parametro> parametros) {
         this.idModelo = idModelo;
         this.nome = nome;
-        this.criador = criador;
-        this.tipo = tipo;
-        this.descricaoArquitetura = descricaoArquitetura;
+        this.descricaoArq = descricaoArq;
         this.status = status;
         this.fkEmpresa = fkEmpresa;
         this.parametros = parametros;
@@ -46,14 +40,8 @@ public class Modelo {
     public String getNome() { return nome; }
     public void setNome(String nome) { this.nome = nome; }
 
-    public String getCriador() { return criador; }
-    public void setCriador(String criador) { this.criador = criador; }
-
-    public String getTipo() { return tipo; }
-    public void setTipo(String tipo) { this.tipo = tipo; }
-
-    public String getDescricaoArquitetura() { return descricaoArquitetura; }
-    public void setDescricaoArquitetura(String descricaoArquitetura) { this.descricaoArquitetura = descricaoArquitetura; }
+    public String getDescricaoArq() { return descricaoArq; }
+    public void setDescricaoArq(String descricaoArq) { this.descricaoArq = descricaoArq; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
@@ -69,9 +57,7 @@ public class Modelo {
         return "Modelo{" +
                 "idModelo=" + idModelo +
                 ", nome='" + nome + '\'' +
-                ", criador='" + criador + '\'' +
-                ", tipo='" + tipo + '\'' +
-                ", descricaoArquitetura='" + descricaoArquitetura + '\'' +
+                ", descricaoArq='" + descricaoArq + '\'' +
                 ", status='" + status + '\'' +
                 ", fkEmpresa=" + fkEmpresa +
                 ", parametros=" + parametros +

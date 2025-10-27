@@ -89,8 +89,6 @@ public class ETL {
         Scanner entrada = null;
         Boolean deuRuim = false;
         macOrigem = macOrigem.trim();
-        Connection connection = new Connection();
-        JdbcTemplate con = new JdbcTemplate(connection.getDataSource());
 
         try {
             // Tentativa de ler arquivo no S3
@@ -102,19 +100,16 @@ public class ETL {
             ResponseInputStream<GetObjectResponse> s3objectStream = s3Client.getObject(getRequest);
             entrada = new Scanner(new InputStreamReader(s3objectStream, StandardCharsets.UTF_8));
             Boolean cabecalho = true;
-            Integer numeroColunasEsperadas = 6;
+            Integer numeroColunasEsperadas = 8;
             Map<String, List<String>> linhasPorMac = new HashMap<>();
             String headerLine = null;
-
-            String modelo = associandoMacComModeloEmpresa(con, macOrigem).get(0).getNome();
-            Integer empresa = associandoMacComModeloEmpresa(con, macOrigem).get(0).getFkEmpresa();
 
             while (entrada.hasNextLine()) {
                 String linha = entrada.nextLine();
                 String[] valores = linha.split(",", -1);
 
                 if (cabecalho) {
-                    headerLine = linha + ",modelo,idEmpresa";
+                    headerLine = linha;
                     cabecalho = false;
                 } else {
                     String[] valoresCompletos = new String[numeroColunasEsperadas];
@@ -126,13 +121,15 @@ public class ETL {
                         }
                     }
 
-                    String ts     = textoLimpo(valoresCompletos[0]);
-                    String cpu    = normalizarNumero(textoLimpo(valoresCompletos[1]));
-                    String ram    = normalizarNumero(textoLimpo(valoresCompletos[2]));
-                    String disco  = normalizarNumero(textoLimpo(valoresCompletos[3]));
-                    String procs  = textoLimpo(valoresCompletos[4]);
-                    String mac    = textoLimpo(valoresCompletos[5]);
-                    String tsFmt  = formatarData(ts);
+                    String ts      = textoLimpo(valoresCompletos[0]);
+                    String cpu     = normalizarNumero(textoLimpo(valoresCompletos[1]));
+                    String ram     = normalizarNumero(textoLimpo(valoresCompletos[2]));
+                    String disco   = normalizarNumero(textoLimpo(valoresCompletos[3]));
+                    String procs   = textoLimpo(valoresCompletos[4]);
+                    String mac     = textoLimpo(valoresCompletos[5]);
+                    String modelo  = textoLimpo(valoresCompletos[6]);
+                    String empresa = textoLimpo(valoresCompletos[7]);
+                    String tsFmt   = formatarData(ts);
 
                     String linhaProcessada = tsFmt + "," + cpu + "," + ram + "," + disco + "," + procs + "," + mac + "," + modelo + "," + empresa;
 
@@ -263,151 +260,6 @@ public class ETL {
      * - atualizamos contadores e "conjuntos" de totens
      */
 
-    private static void taxaAlertas(Totem totem) {
-        Scanner entrada = null;
-        OutputStreamWriter saida = null;
-        Boolean deuRuim = false;
-
-        try {
-            GetObjectRequest getRequest = GetObjectRequest.builder()
-                    .bucket(BUCKET_TRUSTED)
-                    .key("registros/" + totem.getNumMac() + "/dados.csv")
-                    .build();
-
-            ResponseInputStream<GetObjectResponse> s3objectStream = s3Client.getObject(getRequest);
-            entrada = new Scanner(new InputStreamReader(s3objectStream, StandardCharsets.UTF_8));
-
-            saida = new OutputStreamWriter(new FileOutputStream(totem.getNumMac() + ".csv"), StandardCharsets.UTF_8);
-
-            Boolean cabecalho = true;
-            Integer numeroColunasEsperadas = 6;
-            Integer qtdAlertas = 0;
-            Integer qtdLinhas = 0;
-            Boolean pular = false;
-
-            Integer limiteCPU = null;
-            Integer limiteRAM = null;
-            Integer limiteDisco = null;
-            Integer limiteProcessos = null;
-            for (Parametro p : totem.getModelo().getParametros()) {
-                String parametroLowerCase = p.getTipoParametro().getNome().toLowerCase();
-                if (p.getLimite() != null) {
-                    if (parametroLowerCase.contains("cpu")) {
-                        limiteCPU = p.getLimite();
-                    }
-                    if (parametroLowerCase.contains("ram")) {
-                        limiteRAM = p.getLimite();
-                    }
-                    if (parametroLowerCase.contains("disco")) {
-                        limiteDisco = p.getLimite();
-                    }
-                    if (parametroLowerCase.contains("processos")) {
-                        limiteProcessos = p.getLimite();
-                    }
-                }
-            }
-
-            String parametrosUltrapassados = null;
-            String ts = null;
-            while (entrada.hasNextLine()) {
-                String linha = entrada.nextLine();
-                String[] valores = linha.split(",", -1);
-                parametrosUltrapassados = "";
-
-                if (cabecalho) {
-                    saida.write("timestamp,mac,alertaJira,cpu,ram,disco,qtdProcessos\n");
-                    cabecalho = false;
-                } else {
-                    String[] valoresCompletos = new String[numeroColunasEsperadas];
-                    for (int i = 0; i < numeroColunasEsperadas; i++) {
-                        if (i < valores.length && valores[i] != null && !valores[i].trim().isEmpty() && !valores[i].contains("dado_perdido")) {
-                            valoresCompletos[i] = valores[i];
-                        } else {
-                            pular = true;
-                        }
-                    }
-
-                    if (!pular) {
-                        qtdLinhas++;
-                        ts = textoLimpo(valoresCompletos[0]);
-                        Double cpu = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[1])));
-                        Double ram = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[2])));
-                        Double disco = converterDouble(normalizarNumero(textoLimpo(valoresCompletos[3])));
-                        Integer procs = converterInteiro(textoLimpo(valoresCompletos[4]));
-                        String mac = textoLimpo(valoresCompletos[5]);
-
-                        Boolean alertaCpu = cpu >= limiteCPU;
-                        Boolean alertaRam = ram >= limiteRAM;
-                        Boolean alertaDisco = disco >= limiteDisco;
-                        Boolean alertaProcessos = procs >= limiteProcessos;
-                        Boolean alerta = false;
-
-                        if (alertaCpu) {
-                            qtdAlertas++;
-                            parametrosUltrapassados += " CPU, ";
-                        }
-                        if (alertaRam) {
-                            qtdAlertas++;
-                            parametrosUltrapassados += " RAM, ";
-                        }
-                        if (alertaDisco) {
-                            qtdAlertas++;
-                            parametrosUltrapassados += " Uso de disco, ";
-                        }
-                        if (alertaProcessos) {
-                            qtdAlertas++;
-                            parametrosUltrapassados += " Quantidade de processos, ";
-                        }
-
-                        if (qtdAlertas >= 7 && qtdLinhas % 12 == 0) {
-                            alerta = true;
-                            qtdAlertas = 0;
-                        }
-
-                        String tsFmt = formatarData(ts);
-                        saida.write(tsFmt + "," + mac + "," + alerta + "," + alertaCpu + "," + alertaRam + "," + alertaDisco + "," + alertaProcessos + "\n");
-                    }
-                    pular = false;
-                }
-            }
-            if(!parametrosUltrapassados.isBlank()) {
-                enviarMensagem("Alerta! Parâmetro(s)" + parametrosUltrapassados + "acima do limite no totem " + totem.getNumMac() + " às " + ts);
-                criarChamado("Totem " + totem.getNumMac() + " acima do limite de segurança",
-                        "O totem de MAC " + totem.getNumMac() +
-                                "ultrapassou o(s) limite(s) estabelecidos para seus parâmetros. Parâmetros ultrapassados: " + parametrosUltrapassados);
-            }
-
-            String objetoSaidaKey = "alertas/" + totem.getNumMac() + "/alertas.csv";
-            PutObjectRequest putRequest = PutObjectRequest.builder()
-                    .bucket(BUCKET_CLIENT)
-                    .key(objetoSaidaKey)
-                    .contentType("text/csv")
-                    .build();
-
-            s3Client.putObject(putRequest,
-                    RequestBody.fromString(saida.toString()));
-
-            System.out.println("Arquivo de alertas enviado para S3: s3://" + BUCKET_CLIENT + "/" + objetoSaidaKey);
-        } catch (NoSuchKeyException e) {
-            System.out.println("Arquivo trusted não existe para o MAC " + totem.getNumMac() + ": " + e.getMessage());
-            deuRuim = true;
-        } catch (Exception erro) {
-            System.out.println("Erro ao acessar S3 Trusted!");
-            erro.printStackTrace();
-            deuRuim = true;
-        } finally {
-            try {
-                if (entrada != null) entrada.close();
-                if (saida != null) saida.close();
-            } catch (IOException erro) {
-                System.out.println("Erro ao fechar o arquivo!");
-                deuRuim = true;
-            }
-
-            if (deuRuim) System.exit(1);
-        }
-    }
-
     // HELPERS
 
     private static String textoLimpo(String s) {
@@ -481,20 +333,18 @@ public class ETL {
     public static List<Totem> carregarTotensComLimites(JdbcTemplate con) {
 
         List<Totem> totens = con.query("""
-                SELECT t.idTotem, t.numMac, t.instalador, t.status_totem AS statusTotem, t.dataInstalacao,
-                m.idModelo, m.nome AS modeloNome, m.criador, m.tipo, m.descricao_arquitetura AS descricaoArquitetura,
-                m.status AS statusModelo, m.fkEmpresa
+                SELECT t.idTotem, t.numMac, t.status, t.fkEndereco, m.idModelo, m.nome, m.descricao_arq, m.status, m.fkEmpresa
                 FROM totem t
-                INNER JOIN modelo m ON t.fkModelo = m.idModelo
+                INNER JOIN modelo m on t.fkModelo = m.idModelo;
                 """, new TotemRowMapper());
 
         for (Totem totem : totens) {
             Modelo modelo = totem.getModelo();
             if (modelo != null) {
                 List<Parametro> parametros = con.query("""
-                        SELECT p.idParametro, p.limite, tp.idTipo_Parametro AS idTipoParametro, tp.nome AS nome
-                        FROM Parametro p
-                        INNER JOIN Tipo_Parametro tp ON p.fkTipoParametro = tp.idTipo_Parametro
+                        SELECT p.idParametro, p.limiteMin, p.limiteMax, tp.idTipoParametro AS idTipoParametro, tp.componente AS componente, tp.status AS status
+                        FROM parametro p
+                        INNER JOIN tipoParametro tp ON p.fkTipoParametro = tp.idTipoParametro
                         WHERE p.fkModelo = ?
                         """, new ParametroRowMapper(), modelo.getIdModelo());
                 modelo.setParametros(parametros);
@@ -559,7 +409,7 @@ public class ETL {
             if (header != null) {
                 sb.append(header).append("\n");
             } else {
-                sb.append("timestamp,cpu,ram,disco,qtdProcessos,mac\n");
+                sb.append("timestamp,cpu,ram,disco,qtdProcessos,mac,modelo,fkEmpresa\n");
             }
             for (String line : chaveParaLinha.values()) {
                 sb.append(line).append("\n");
@@ -594,8 +444,8 @@ public class ETL {
         // UX de progresso
         for (Totem totem : totens) {
             limparDadosParaTrusted(totem.getNumMac());
-            limparProcessosParaTrusted(totem.getNumMac());
-            taxaAlertas(totem);
+            // limparProcessosParaTrusted(totem.getNumMac());
+            // taxaAlertas(totem);
         }
         System.out.println("[1/3] Limpando RAW -> TRUSTED (Dados)...");
 

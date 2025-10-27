@@ -12,18 +12,15 @@ public class TotemRowMapper implements RowMapper<Totem> {
         Totem totem = new Totem();
         totem.setIdTotem(rs.getInt("idTotem"));
         totem.setNumMac(rs.getString("numMac"));
-        totem.setInstalador(rs.getString("instalador"));
-        totem.setStatusTotem(rs.getBoolean("statusTotem"));
-        totem.setDataInstalacao(rs.getString("dataInstalacao"));
+        totem.setStatus(rs.getString("status"));
+        totem.setFkEndereco(rs.getInt("fkEndereco"));
 
         // Preenche o Modelo
         Modelo modelo = new Modelo();
         modelo.setIdModelo(rs.getInt("idModelo"));
-        modelo.setNome(rs.getString("modeloNome"));
-        modelo.setCriador(rs.getString("criador"));
-        modelo.setTipo(rs.getString("tipo"));
-        modelo.setDescricaoArquitetura(rs.getString("descricaoArquitetura"));
-        modelo.setStatus(rs.getString("statusModelo"));
+        modelo.setNome(rs.getString("nome"));
+        modelo.setDescricaoArq(rs.getString("descricao_arq"));
+        modelo.setStatus(rs.getString("status"));
         modelo.setFkEmpresa(rs.getInt("fkEmpresa"));
 
         totem.setModelo(modelo);

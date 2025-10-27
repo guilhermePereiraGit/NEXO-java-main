@@ -10,11 +10,10 @@ public class ParametroRowMapper implements RowMapper<Parametro> {
     public Parametro mapRow(ResultSet rs, int rowNum) throws SQLException {
         Parametro p = new Parametro();
         p.setIdParametro(rs.getInt("idParametro"));
-        p.setLimite(rs.getInt("limite"));
-
+        p.setLimiteMax(rs.getInt("limiteMax"));
+        p.setLimiteMin(rs.getInt("limiteMax"));
         TipoParametro tp = new TipoParametro();
         tp.setIdTipoParametro(rs.getInt("idTipoParametro"));
-        tp.setNome(rs.getString("nome"));
         p.setTipoParametro(tp);
 
         return p;
