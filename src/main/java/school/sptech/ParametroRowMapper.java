@@ -11,11 +11,14 @@ public class ParametroRowMapper implements RowMapper<Parametro> {
         Parametro p = new Parametro();
         p.setIdParametro(rs.getInt("idParametro"));
         p.setLimiteMax(rs.getInt("limiteMax"));
-        p.setLimiteMin(rs.getInt("limiteMax"));
+        p.setLimiteMin(rs.getInt("limiteMin"));
+
         TipoParametro tp = new TipoParametro();
         tp.setIdTipoParametro(rs.getInt("idTipoParametro"));
-        p.setTipoParametro(tp);
+        tp.setComponente(rs.getString("componente"));
+        tp.setStatus(rs.getString("status"));
 
+        p.setTipoParametro(tp);
         return p;
     }
 }
