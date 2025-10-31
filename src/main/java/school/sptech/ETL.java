@@ -471,9 +471,9 @@ public class ETL {
             Modelo modelo = totem.getModelo();
             if (modelo != null) {
                 List<Parametro> parametros = con.query("""
-                        SELECT p.idParametro, p.limiteMin, p.limiteMax, tp.idTipoParametro AS idTipoParametro, tp.componente AS componente, tp.status AS status
+                        SELECT p.idParametro, p.limiteMin, p.limiteMax, comp.idComponente AS idTipoParametro, comp.nome AS componente, comp.status AS status
                         FROM parametro p
-                        INNER JOIN tipoParametro tp ON p.fkTipoParametro = tp.idTipoParametro
+                        INNER JOIN componente comp ON p.fkComponente = comp.idComponente
                         WHERE p.fkModelo = ?
                         """, new ParametroRowMapper(), modelo.getIdModelo());
                 modelo.setParametros(parametros);
