@@ -48,7 +48,8 @@ import static school.sptech.NotificadorSlack.enviarMensagem;
  *   - cópias na raiz: Dados_Client.csv / Processos_Client.csv (facilitam a demonstração)
  * ============================================================
  */
-public class ETL {
+public class
+ETL {
     // FORMATO DE DATA — Python usa underline
 
     static DateTimeFormatter FORMATO_ENTRADA = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
@@ -100,7 +101,7 @@ public class ETL {
             ResponseInputStream<GetObjectResponse> s3objectStream = s3Client.getObject(getRequest);
             entrada = new Scanner(new InputStreamReader(s3objectStream, StandardCharsets.UTF_8));
             Boolean cabecalho = true;
-            Integer numeroColunasEsperadas = 8;
+            Integer numeroColunasEsperadas = 9;
             Map<String, List<String>> linhasPorMac = new HashMap<>();
             String headerLine = null;
 
@@ -126,12 +127,13 @@ public class ETL {
                     String ram     = normalizarNumero(textoLimpo(valoresCompletos[2]));
                     String disco   = normalizarNumero(textoLimpo(valoresCompletos[3]));
                     String procs   = textoLimpo(valoresCompletos[4]);
-                    String mac     = textoLimpo(valoresCompletos[5]);
-                    String modelo  = textoLimpo(valoresCompletos[6]);
-                    String empresa = textoLimpo(valoresCompletos[7]);
+                    String uptime  = textoLimpo(String.valueOf(Integer.parseInt(valoresCompletos[5]) / 86400));
+                    String mac     = textoLimpo(valoresCompletos[6]);
+                    String modelo  = textoLimpo(valoresCompletos[7]);
+                    String empresa = textoLimpo(valoresCompletos[8]);
                     String tsFmt   = formatarData(ts);
 
-                    String linhaProcessada = tsFmt + "," + cpu + "," + ram + "," + disco + "," + procs + "," + mac + "," + modelo + "," + empresa;
+                    String linhaProcessada = tsFmt + "," + cpu + "," + ram + "," + disco + "," + procs + "," + uptime + "," + mac + "," + modelo + "," + empresa;
 
                     linhasPorMac.computeIfAbsent(mac, k -> new ArrayList<>()).add(linhaProcessada);
                 }
@@ -538,7 +540,7 @@ public class ETL {
             if (header != null) {
                 sb.append(header).append("\n");
             } else {
-                sb.append("timestamp,cpu,ram,disco,qtdProcessos,mac,modelo,fkEmpresa\n");
+                sb.append("timestamp,cpu,ram,disco,qtdProcessos,uptime,mac,modelo,fkEmpresa\n");
             }
             for (String line : chaveParaLinha.values()) {
                 sb.append(line).append("\n");
