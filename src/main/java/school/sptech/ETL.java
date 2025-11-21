@@ -65,9 +65,9 @@ ETL {
      * - Mantém exatamente as mesmas colunas do RAW (sem adicionar nada)
      */
 
-    private static String BUCKET_RAW = "bucket-raw-nexo";
-    private static String BUCKET_TRUSTED = "bucket-trusted-nexo";
-    private static String BUCKET_CLIENT = "bucket-client-nexo";
+    private static String BUCKET_RAW = "bucket-raw-nexo-silva";
+    private static String BUCKET_TRUSTED = "bucket-trusted-nexo-silva";
+    private static String BUCKET_CLIENT = "bucket-client-nexo-silva";
     private static Region S3_REGION = Region.US_EAST_1;
     private static S3Client s3Client;
     static {
@@ -127,7 +127,7 @@ ETL {
                     String ram     = normalizarNumero(textoLimpo(valoresCompletos[2]));
                     String disco   = normalizarNumero(textoLimpo(valoresCompletos[3]));
                     String procs   = textoLimpo(valoresCompletos[4]);
-                    String uptime  = textoLimpo(String.valueOf(Integer.parseInt(valoresCompletos[5]) / 86400));
+                    String uptime  = textoLimpo(String.valueOf(Double.parseDouble(valoresCompletos[5]) / 86400));
                     String mac     = textoLimpo(valoresCompletos[6]);
                     String modelo  = textoLimpo(valoresCompletos[7]);
                     String empresa = textoLimpo(valoresCompletos[8]);

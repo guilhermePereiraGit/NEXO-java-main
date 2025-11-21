@@ -10,7 +10,7 @@ public class Connection {
         dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
         dataSource.setUrl("jdbc:mysql://localhost/NEXO_DB");
         dataSource.setUsername("root");
-        dataSource.setPassword("urubu100");
+        dataSource.setPassword("*Gui1709*06");
     }
 
     public BasicDataSource getDataSource(){
