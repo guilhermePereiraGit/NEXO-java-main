@@ -1,22 +1,21 @@
 package sptech.nexo;
 
+import org.h2.engine.Mode;
+
 public class Totem {
     //Atributos
     private Integer idTotem;
     private String numMac;
-    private String nomeModelo;
-    private String nomeRegiao;
-    private String siglaRegiao;
+    private Regiao regiao;
+    private Modelo modelo;
 
     //Construtor Cheio e Vazio
-    public Totem(Integer idTotem, String numMac, String nomeModelo, String nomeRegiao, String siglaRegiao) {
+    public Totem(Integer idTotem, String numMac, Regiao regiao, Modelo modelo) {
         this.idTotem = idTotem;
         this.numMac = numMac;
-        this.nomeModelo = nomeModelo;
-        this.nomeRegiao = nomeRegiao;
-        this.siglaRegiao = siglaRegiao;
+        this.regiao = regiao;
+        this.modelo = modelo;
     }
-
     public Totem() {}
 
     //Getters e Setters
@@ -24,12 +23,10 @@ public class Totem {
     public void setIdTotem(Integer idTotem) {this.idTotem = idTotem;}
     public String getNumMac() {return numMac;}
     public void setNumMac(String numMac) {this.numMac = numMac;}
-    public String getNomeModelo() {return nomeModelo;}
-    public void setNomeModelo(String nomeModelo) {this.nomeModelo = nomeModelo;}
-    public String getNomeRegiao() {return nomeRegiao;}
-    public void setNomeRegiao(String nomeRegiao) {this.nomeRegiao = nomeRegiao;}
-    public String getSiglaRegiao() {return siglaRegiao;}
-    public void setSiglaRegiao(String siglaRegiao) {this.siglaRegiao = siglaRegiao;}
+    public Modelo getModelo() {return modelo;}
+    public void setModelo(Modelo modelo) {this.modelo = modelo;}
+    public Regiao getRegiao() {return regiao;}
+    public void setRegiao(Regiao regiao) {this.regiao = regiao;}
 
     //toString()
     @Override
@@ -37,9 +34,8 @@ public class Totem {
         return "Totem{" +
                 "idTotem=" + idTotem +
                 ", numMac='" + numMac + '\'' +
-                ", nomeModelo='" + nomeModelo + '\'' +
-                ", nomeRegiao='" + nomeRegiao + '\'' +
-                ", siglaRegiao='" + siglaRegiao + '\'' +
+                ", regiao=" + regiao +
+                ", modelo=" + modelo +
                 '}';
     }
 }
