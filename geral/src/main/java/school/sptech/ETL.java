@@ -1,5 +1,6 @@
 package school.sptech;
 
+import org.h2.jdbc.JdbcConnection;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -18,6 +19,8 @@ import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -65,9 +68,9 @@ ETL {
      * - Mantém exatamente as mesmas colunas do RAW (sem adicionar nada)
      */
 
-    private static String BUCKET_RAW = "bucket-raw-nexo-silva";
-    private static String BUCKET_TRUSTED = "bucket-trusted-nexo-silva";
-    private static String BUCKET_CLIENT = "bucket-client-nexo-silva";
+    private static String BUCKET_RAW = "bucket-raw-nexo";
+    private static String BUCKET_TRUSTED = "bucket-trusted-nexo";
+    private static String BUCKET_CLIENT = "bucket-client-nexo";
     private static Region S3_REGION = Region.US_EAST_1;
     private static S3Client s3Client;
     static {
@@ -86,7 +89,7 @@ ETL {
 
 
 
-    private static void limparDadosParaTrusted(String macOrigem) {
+    private static void limparDadosParaTrusted(String macOrigem, JdbcTemplate con) {
         Scanner entrada = null;
         Boolean deuRuim = false;
         macOrigem = macOrigem.trim();
@@ -95,14 +98,14 @@ ETL {
             // Tentativa de ler arquivo no S3
             GetObjectRequest getRequest = GetObjectRequest.builder()
                     .bucket(BUCKET_RAW)
-                    .key("/registros/" + macOrigem + "/dados.csv")
+                    .key( buscarIdEmpresaPorMac(con, macOrigem) + "/" + macOrigem + "/" + LocalDate.now(ZoneId.of("America/Sao_Paulo")).toString() + "/dados.csv")
                     .build();
 
             ResponseInputStream<GetObjectResponse> s3objectStream = s3Client.getObject(getRequest);
             entrada = new Scanner(new InputStreamReader(s3objectStream, StandardCharsets.UTF_8));
             Boolean cabecalho = true;
             Integer numeroColunasEsperadas = 9;
-            Map<String, List<String>> linhasPorMac = new HashMap<>();
+            Map<String, Map<String, List<String>>> linhasPorMacEDia = new HashMap<>();
             String headerLine = null;
 
             while (entrada.hasNextLine()) {
@@ -135,17 +138,27 @@ ETL {
 
                     String linhaProcessada = tsFmt + "," + cpu + "," + ram + "," + disco + "," + procs + "," + uptime + "," + mac + "," + modelo + "," + empresa;
 
-                    linhasPorMac.computeIfAbsent(mac, k -> new ArrayList<>()).add(linhaProcessada);
+                    String dia = tsFmt.substring(0, 10);
+                    linhasPorMacEDia
+                            .computeIfAbsent(mac, k -> new HashMap<>())
+                            .computeIfAbsent(dia, k -> new ArrayList<>())
+                            .add(linhaProcessada);
+
                 }
             }
 
             // Para cada mac, faz merge e upload
-            for (Map.Entry<String, List<String>> entry : linhasPorMac.entrySet()) {
-                String mac = entry.getKey();
-                List<String> novasLinhas = entry.getValue();
-                String objetoTrustedKey = "registros/" + mac + "/dados.csv";
-                mergeAndUploadToTrustedBucket(headerLine, objetoTrustedKey, novasLinhas);
+            for (Map.Entry<String, Map<String, List<String>>> macEntry : linhasPorMacEDia.entrySet()) {
+                String mac = macEntry.getKey();
+                Integer idEmpresa = buscarIdEmpresaPorMac(con, mac);
+                for (Map.Entry<String, List<String>> diaEntry : macEntry.getValue().entrySet()) {
+                    String dia = diaEntry.getKey();
+                    List<String> novasLinhas = diaEntry.getValue();
+                    String objetoTrustedKey = idEmpresa + "/" + mac + "/" + dia + "/dados.csv";
+                    mergeAndUploadToTrustedBucket(headerLine, objetoTrustedKey, novasLinhas);
+                }
             }
+
 
         } catch (NoSuchKeyException e) {
             // Arquivo RAW não existe então não dá para processar
@@ -170,7 +183,7 @@ ETL {
      * - Mantém exatamente as colunas do RAW
      */
 
-    private static void limparProcessosParaTrusted(String macOrigem) {
+    private static void limparProcessosParaTrusted(String macOrigem, JdbcTemplate con) {
         Scanner entrada = null;
         Boolean deuRuim = false;
         macOrigem = macOrigem.trim();
@@ -178,7 +191,7 @@ ETL {
         try {
             GetObjectRequest getRequest = GetObjectRequest.builder()
                     .bucket(BUCKET_RAW)
-                    .key("/registros/" + macOrigem + "/processos.csv")
+                    .key( buscarIdEmpresaPorMac(con, macOrigem) + "/" + macOrigem + "/" + LocalDate.now(ZoneId.of("America/Sao_Paulo")).toString() + "/dados.csv")
                     .build();
 
             ResponseInputStream<GetObjectResponse> s3objectStream = s3Client.getObject(getRequest);
@@ -224,7 +237,7 @@ ETL {
             for (Map.Entry<String, List<String>> entry : linhasPorMac.entrySet()) {
                 String mac = entry.getKey();
                 List<String> novasLinhas = entry.getValue();
-                String objetoTrustedKey = "registros/" + mac + "/processos.csv";
+                String objetoTrustedKey = buscarIdEmpresaPorMac(con, macOrigem) + "/" + macOrigem + "/" + LocalDate.now(ZoneId.of("America/Sao_Paulo")).toString() + "/processos.csv";
                 mergeAndUploadToTrustedBucket(headerLine, objetoTrustedKey, novasLinhas);
             }
 
@@ -257,15 +270,15 @@ ETL {
      * - atualizamos contadores e "conjuntos" de totens
      */
 
-    private static void taxaAlertas(Totem totem) {
+    private static void taxaAlertas(Totem totem, JdbcTemplate con) {
         Scanner entrada = null;
         StringBuilder saida = new StringBuilder();
         Boolean deuRuim = false;
 
         try {
             GetObjectRequest getRequest = GetObjectRequest.builder()
-                    .bucket(BUCKET_TRUSTED)
-                    .key("registros/" + totem.getNumMac() + "/dados.csv")
+                    .bucket(BUCKET_RAW)
+                    .key( buscarIdEmpresaPorMac(con, totem.getNumMac()) + "/" + totem.getNumMac() + "/" + LocalDate.now(ZoneId.of("America/Sao_Paulo")).toString() + "/dados.csv")
                     .build();
 
             ResponseInputStream<GetObjectResponse> s3objectStream = s3Client.getObject(getRequest);
@@ -563,6 +576,21 @@ ETL {
         }
     }
 
+    // Helper para associar o mac do totem a empresa (já que o método uploadToTrusted não recebe o objeto totem,
+    // somente o mac dele)
+    private static Integer buscarIdEmpresaPorMac(JdbcTemplate con, String mac) {
+        try {
+            return con.queryForObject(
+                    "SELECT m.fkEmpresa FROM totem t JOIN modelo m ON t.fkModelo = m.idModelo WHERE t.numMac = ?",
+                    Integer.class,
+                    mac
+            );
+        } catch (Exception e) {
+            System.out.println("Empresa não encontrada para MAC: " + mac);
+            return null;
+        }
+    }
+
     // EXECUÇÃO
 
     public static void main(String[] args) {
@@ -574,9 +602,9 @@ ETL {
 
         // UX de progresso
         for (Totem totem : totens) {
-            limparDadosParaTrusted(totem.getNumMac());
-            limparProcessosParaTrusted(totem.getNumMac());
-            taxaAlertas(totem);
+            limparDadosParaTrusted(totem.getNumMac(), con);
+            limparProcessosParaTrusted(totem.getNumMac(), con);
+            taxaAlertas(totem, con);
         }
         System.out.println("[1/3] Limpando RAW -> TRUSTED (Dados)...");
 
