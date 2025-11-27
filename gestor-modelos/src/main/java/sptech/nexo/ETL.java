@@ -81,56 +81,39 @@ public class ETL {
                     Map<String, List<String>> linhasPorMac = new HashMap<>();
                     String headerLine = null;
                     String totensJson = "";
+                    String[] ultimaLinhaCSV = null;
 
                     while(entrada.hasNextLine()){
                         String linha = entrada.nextLine();
                         String[] valores = linha.split(",", -1);
 
                         if (cabecalho){
-                            String tTimestamp = valores[0];
-                            String tCpu = valores[1];
-                            String tRam = valores[2];
-                            String tDisco = valores[3];
-                            String tProcessos = valores[4];
-                            String tUptime = valores[5];
-                            String tMac = valores[6];
-                            String tModelo = valores[7];
-                            String tIdEmpresa = valores[8];
                             cabecalho = false;
-
-                            //Printando para ver se pegou certinho
-                            System.out.printf("""
-                                1º%s
-                                2º%s
-                                3º%s
-                                4º%s
-                                5º%s
-                                6º%s
-                                7º%s
-                                8º%s
-                                9º%s
-                                """,tTimestamp,tCpu,tRam,tDisco,tProcessos,tUptime,tMac,tModelo,tIdEmpresa);
                         }else if (valores.length >= 9){
-                            //Convertendo Uptime de milisegundos para horas
-                            Double uptime = Double.parseDouble(valores[5]) / 3600000;
-
-                            //Calculando o Downtime
-                            Double downtime1Dia = uptime - 24;
-                            Double downtime2Dia = uptime - (24*2);
-                            Double downtime3Dia = uptime - (24*3);
-                            Double downtime4Dia = uptime - (24*4);
-                            Double downtime5Dia = uptime - (24*5);
-                            Double downtime6Dia = uptime - (24*6);
-                            Double downtime7Dia = uptime - (24*7);
-
-                            //Adicionando o Json do Totem
-                            totensJson += """
-                                { "modelo": "%s", "downtime1Dia": %f, "downtime2Dia": %f, "downtime3Dia": %f, "downtime4Dia": %f, "downtime5Dia": %f , "downtime6Dia": %f, "downtime7Dia": %f},
-                                """.formatted(valores[7],downtime1Dia,downtime2Dia,downtime3Dia,downtime4Dia,downtime5Dia,downtime6Dia,downtime7Dia);
+                            ultimaLinhaCSV = valores;
                         }else{
                             System.out.println("A Linha não Possui o Número de Valores Suficiente");
                         }
                     }
+                    if (ultimaLinhaCSV != null){
+                        //Convertendo Uptime de milisegundos para horas
+                        Double uptime = Double.parseDouble(ultimaLinhaCSV[5]) / 3600000;
+
+                        //Calculando o Downtime
+                        Double downtime1Dia = uptime - 24;
+                        Double downtime2Dia = uptime - (24*2);
+                        Double downtime3Dia = uptime - (24*3);
+                        Double downtime4Dia = uptime - (24*4);
+                        Double downtime5Dia = uptime - (24*5);
+                        Double downtime6Dia = uptime - (24*6);
+                        Double downtime7Dia = uptime - (24*7);
+
+                        //Adicionando o Json do Totem
+                        totensJson += """
+                                { "modelo": "%s","data": "%s", "downtime1Dia": %f, "downtime2Dia": %f, "downtime3Dia": %f, "downtime4Dia": %f, "downtime5Dia": %f , "downtime6Dia": %f, "downtime7Dia": %f},
+                                """.formatted(ultimaLinhaCSV[7],dataFormatada,downtime1Dia,downtime2Dia,downtime3Dia,downtime4Dia,downtime5Dia,downtime6Dia,downtime7Dia);
+                    }
+
                     arqJson += totensJson;
 
                 }catch (S3Exception e){
@@ -147,11 +130,7 @@ public class ETL {
             }
 
             //Para remover a última vírgula do último objeto colocado no json
-            if(arqJson.endsWith(",")){
-                //Ele literalmente pega o último caractere dentro do arqJson (que é a vírgula) e remove ela
-                arqJson = arqJson.substring(0, arqJson.length() - 1);
-            }
-
+            arqJson = arqJson.replaceAll(",\\s*$", "");
             //Fechando o arqJson para realmente virar um Json
             arqJson += "]";
 
@@ -415,10 +394,7 @@ public class ETL {
                                 a.getModelo(), a.getComponente(), a.getGrau());
                     }
 
-                    if(alertasArq.endsWith(",")){
-                        //Ele literalmente pega o último caractere dentro do alertasArq (que é a vírgula) e remove ela
-                        alertasArq = alertasArq.substring(0, alertasArq.length() - 1);
-                    }
+                    alertasArq = alertasArq.replaceAll(",\\s*$", "");
                     alertasArq += "]";
 
                     //Enviar para o Client
