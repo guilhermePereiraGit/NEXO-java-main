@@ -51,9 +51,7 @@ public class ETL {
             String arqJson = "[";
             //Pegar últimos 7 Dias:
             //Esse código vai navegar convertendo a data nos diretórios dos buckets de string para data e pegando seus arquivos
-            for (int j = 0; j < 7; j++) {
-                //Este minusDay substrai dias de uma data, essencial para neste caso, pegar os arquivos de hoje até 7 dias atrás pasando por todos os dias
-                LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).minusDays(j);
+                LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
                 String dataFormatada = hoje.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
 
                 //Para ele buscar os arquivos corretamente, eu vou criar uma variável key passando o caminho com base
@@ -127,7 +125,6 @@ public class ETL {
                     if (entrada != null) entrada.close();
                     if (falhou) System.exit(1);
                 }
-            }
 
             //Para remover a última vírgula do último objeto colocado no json
             arqJson = arqJson.replaceAll(",\\s*$", "");
@@ -136,16 +133,61 @@ public class ETL {
 
             //Enviar para o Client
             try {
-                String enviarClient = "empresa-"+i+"/"+macOrigem+"/downtime.json";
-                PutObjectRequest putRequest = PutObjectRequest.builder()
-                        .bucket(BUCKET_CLIENT)
-                        .key(enviarClient)
-                        .contentType("application/json")
-                        .build();
-                s3Client.putObject(putRequest, RequestBody.fromString(arqJson));
+                String local = "empresa-"+i+"/downtime.json";
+                String novoJson = arqJson.substring(1,arqJson.length() - 1);
+                acrescentarLinhaJson(local,novoJson);
             }catch (Exception e){
                 System.out.println("Erro ao Acessar S3 Client");
             }
+        }
+    }
+
+    private static void acrescentarLinhaJson(String s3Key, String novaLinhaJson){
+        String jsonFinal;
+
+        try{
+            //Formato para aceitar o append dos objetos do json
+            StringBuilder stBuilder = new StringBuilder();
+
+            try{
+                //Pegando arquivo Json do bucket para adicionar
+                GetObjectRequest arquivoAtual = GetObjectRequest.builder()
+                        .bucket(BUCKET_CLIENT)
+                        .key(s3Key)
+                        .build();
+                ResponseInputStream<GetObjectResponse> objStream = s3Client.getObject(arquivoAtual);
+
+                //Ler arquivo linha à linha para adicionar
+                try (Scanner leitor = new Scanner(new InputStreamReader(objStream, StandardCharsets.UTF_8))){
+                    while(leitor.hasNextLine()){
+                        //Esse builder está recebendo totalmente o arquivo JSON para adicionar a linha
+                        stBuilder.append(leitor.nextLine());
+                    }
+                }
+                String existe = stBuilder.toString().trim();
+
+                //Tirando o último colchete para conseguir adicionar um novo json antes de fechar
+                if (existe.endsWith("]")){
+                    existe = existe.substring(0, existe.length() -1);
+                }
+                jsonFinal = existe + "," + novaLinhaJson + "]";
+
+            }catch (NoSuchKeyException e){
+                System.out.println("O arquivo downtime.json não existe, criando...");
+                jsonFinal = "["+novaLinhaJson+"]";
+            }
+
+            //Enviando para o Client
+            PutObjectRequest adicionarJson = PutObjectRequest.builder()
+                    .bucket(BUCKET_CLIENT)
+                    .key(s3Key)
+                    .contentType("application/json")
+                    .build();
+            s3Client.putObject(adicionarJson, RequestBody.fromString(jsonFinal,StandardCharsets.UTF_8));
+
+        }catch (Exception e){
+            System.out.println("Erro ao Acrescentar Linha JSON"+e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -390,8 +432,8 @@ public class ETL {
                     String alertasArq = "[";
                     for (Alerta a : alertas){
                         alertasArq += """
-                                { "modelo": "%s","componente":"%s", "grau":"%s"},""".formatted(
-                                a.getModelo(), a.getComponente(), a.getGrau());
+                                { "modelo": "%s","data": "%s","regiao": "%s","componente":"%s", "grau":"%s"},""".formatted(
+                                a.getModelo(),dataFormatada,totem.getRegiao().getNomeRegiao(), a.getComponente(), a.getGrau());
                     }
 
                     alertasArq = alertasArq.replaceAll(",\\s*$", "");
@@ -399,13 +441,9 @@ public class ETL {
 
                     //Enviar para o Client
                     try {
-                        String enviarClient = "empresa-"+i+"/"+macOrigem+"/alertas-"+dataFormatada+".json";
-                        PutObjectRequest putRequest = PutObjectRequest.builder()
-                                .bucket(BUCKET_CLIENT)
-                                .key(enviarClient)
-                                .contentType("application/json")
-                                .build();
-                        s3Client.putObject(putRequest, RequestBody.fromString(alertasArq));
+                        String enviarClient = "empresa-"+i+"/alertas.json";
+                        String novoObjeto = alertasArq.substring(1, alertasArq.length() - 1);
+                        acrescentarAlertasJson(enviarClient, novoObjeto);
                     }catch (Exception e){
                         System.out.println("Erro ao Acessar S3 Client");
                     }
@@ -422,6 +460,56 @@ public class ETL {
                     if (falhou) System.exit(1);
                 }
             }
+        }
+    }
+
+    private static void acrescentarAlertasJson(String s3Key, String novaLinhaJson){
+        String jsonFinal;
+
+        try{
+            //Formato para aceitar o append dos objetos do json
+            if (novaLinhaJson.trim().isEmpty()) return;
+            StringBuilder stBuilder = new StringBuilder();
+
+            try{
+                //Pegando arquivo Json do bucket para adicionar
+                GetObjectRequest arquivoAtual = GetObjectRequest.builder()
+                        .bucket(BUCKET_CLIENT)
+                        .key(s3Key)
+                        .build();
+                ResponseInputStream<GetObjectResponse> objStream = s3Client.getObject(arquivoAtual);
+
+                //Ler arquivo linha à linha para adicionar
+                try (Scanner leitor = new Scanner(new InputStreamReader(objStream, StandardCharsets.UTF_8))){
+                    while(leitor.hasNextLine()){
+                        //Esse builder está recebendo totalmente o arquivo JSON para adicionar a linha
+                        stBuilder.append(leitor.nextLine());
+                    }
+                }
+                String existe = stBuilder.toString().trim();
+
+                //Tirando o último colchete para conseguir adicionar um novo json antes de fechar
+                if (existe.endsWith("]")){
+                    existe = existe.substring(0, existe.length() -1);
+                }
+                jsonFinal = existe + "," + novaLinhaJson + "]";
+
+            }catch (NoSuchKeyException e){
+                System.out.println("O arquivo downtime.json não existe, criando...");
+                jsonFinal = "["+novaLinhaJson+"]";
+            }
+
+            //Enviando para o Client
+            PutObjectRequest adicionarJson = PutObjectRequest.builder()
+                    .bucket(BUCKET_CLIENT)
+                    .key(s3Key)
+                    .contentType("application/json")
+                    .build();
+            s3Client.putObject(adicionarJson, RequestBody.fromString(jsonFinal,StandardCharsets.UTF_8));
+
+        }catch (Exception e){
+            System.out.println("Erro ao Acrescentar Linha JSON"+e.getMessage());
+            e.printStackTrace();
         }
     }
 
