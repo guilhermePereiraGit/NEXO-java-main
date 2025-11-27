@@ -4,6 +4,7 @@ school\sptech\TotemRowMapper.class
 school\sptech\ETL.class
 school\sptech\Totem.class
 school\sptech\ParametroRowMapper.class
+school\sptech\ETL$KeyParts.class
 school\sptech\Parametro.class
 school\sptech\NotificadorSlack.class
 school\sptech\Modelo.class

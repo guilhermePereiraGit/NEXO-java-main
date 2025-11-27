@@ -16,39 +16,22 @@
 
     <dependencies>
 
-        <!-- https://mvnrepository.com/artifact/org.springframework/spring-jdbc -->
-
         <dependency>
             <groupId>org.springframework</groupId>
-
             <artifactId>spring-jdbc</artifactId>
-
             <version>6.1.12</version>
-
         </dependency>
-
-
-        <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-dbcp2 -->
 
         <dependency>
             <groupId>org.apache.commons</groupId>
-
             <artifactId>commons-dbcp2</artifactId>
-
             <version>2.12.0</version>
         </dependency>
 
-
-        <!-- https://mvnrepository.com/artifact/com.h2database/h2 -->
-
         <dependency>
-
             <groupId>com.h2database</groupId>
-
             <artifactId>h2</artifactId>
-
             <version>2.3.232</version>
-
         </dependency>
 
         <dependency>
@@ -74,30 +57,71 @@
             <artifactId>logback-classic</artifactId>
             <version>1.4.11</version>
         </dependency>
+
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-lambda-java-core</artifactId>
+            <version>1.2.3</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-lambda-java-events</artifactId>
+            <version>3.11.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-s3</artifactId>
+            <version>1.12.612</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.17.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>2.17.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>2.17.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-lambda-java-log4j2</artifactId>
+            <version>1.5.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <version>3.3.0</version>
-                <configuration>
-                    <descriptorRefs>
-                        <descriptorRef>jar-with-dependencies</descriptorRef>
-                    </descriptorRefs>
-                    <archive>
-                        <manifest>
-                            <mainClass>school.sptech.ETL</mainClass>
-                        </manifest>
-                    </archive>
-                </configuration>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.2</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
                         <goals>
-                            <goal>single</goal>
+                            <goal>shade</goal>
                         </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>school.sptech.lambda.ETLLambda</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
