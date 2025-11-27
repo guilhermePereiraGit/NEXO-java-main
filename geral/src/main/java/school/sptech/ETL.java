@@ -325,11 +325,13 @@ ETL {
             }
 
             String parametrosUltrapassados = null;
+            String nivelAlerta = null;
             String ts = null;
             while (entrada.hasNextLine()) {
                 String linha = entrada.nextLine();
                 String[] valores = linha.split(",", -1);
                 parametrosUltrapassados = "";
+                nivelAlerta = "";
                 if (cabecalho) {
                     saida.append("timestamp,mac,alertaJira,cpu,ram,disco,qtdProcessos,modelo,empresa\n");
                     cabecalho = false;
@@ -375,8 +377,17 @@ ETL {
                             qtdAlertas++;
                             parametrosUltrapassados += " Quantidade de processos, ";
                         }
-                        if (qtdAlertas >= 7 && qtdLinhas % 12 == 0) {
+                        if (qtdAlertas >= 270 && qtdLinhas % 360 == 0) {
                             alerta = true;
+                            nivelAlerta = "Muito Perigoso";
+                            qtdAlertas = 0;
+                        } else if (qtdAlertas >= 180 && qtdLinhas % 360 == 0) {
+                            alerta = true;
+                            nivelAlerta = "Perigoso";
+                            qtdAlertas = 0;
+                        } else if (qtdAlertas >= 90 && qtdLinhas % 360 == 0) {
+                            alerta = true;
+                            nivelAlerta = "Atenção";
                             qtdAlertas = 0;
                         }
                         String tsFmt = formatarData(ts);
@@ -392,7 +403,7 @@ ETL {
                 enviarMensagem("Alerta! Parâmetro(s)" + parametrosUltrapassados + "acima do limite no totem " + totem.getNumMac() + " às " + ts);
                 criarChamado("Totem " + totem.getNumMac() + " acima do limite de segurança",
                         "O totem de MAC " + totem.getNumMac() +
-                        "ultrapassou o(s) limite(s) estabelecidos para seus parâmetros. Parâmetros ultrapassados: " + parametrosUltrapassados);
+                        " ultrapassou o(s) limite(s) estabelecidos para seus parâmetros. Nível do alerta: " + nivelAlerta + " Parâmetros ultrapassados: " + parametrosUltrapassados);
             }
             String objetoSaidaKey = "alertas/" + totem.getNumMac() + "/alertas.csv";
             PutObjectRequest putRequest = PutObjectRequest.builder()
