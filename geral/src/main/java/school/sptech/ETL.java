@@ -403,7 +403,7 @@ ETL {
                 enviarMensagem("Alerta! Parâmetro(s)" + parametrosUltrapassados + "acima do limite no totem " + totem.getNumMac() + " às " + ts);
                 criarChamado("Totem " + totem.getNumMac() + " acima do limite de segurança",
                         "O totem de MAC " + totem.getNumMac() +
-                        " ultrapassou o(s) limite(s) estabelecidos para seus parâmetros. Nível do alerta: " + nivelAlerta + " Parâmetros ultrapassados: " + parametrosUltrapassados);
+                        " ultrapassou o(s) limite(s) estabelecidos para seus parâmetros; Nível do alerta: " + nivelAlerta + "; Parâmetros ultrapassados: " + parametrosUltrapassados);
             }
             String objetoSaidaKey = "alertas/" + totem.getNumMac() + "/alertas.csv";
             PutObjectRequest putRequest = PutObjectRequest.builder()
