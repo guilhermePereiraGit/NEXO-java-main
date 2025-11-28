@@ -108,8 +108,8 @@ public class ETL {
 
                         //Adicionando o Json do Totem
                         totensJson += """
-                                { "modelo": "%s","data": "%s", "downtime1Dia": %f, "downtime2Dia": %f, "downtime3Dia": %f, "downtime4Dia": %f, "downtime5Dia": %f , "downtime6Dia": %f, "downtime7Dia": %f},
-                                """.formatted(ultimaLinhaCSV[7],dataFormatada,downtime1Dia,downtime2Dia,downtime3Dia,downtime4Dia,downtime5Dia,downtime6Dia,downtime7Dia);
+                                { "modelo": "%s","data": "%s","mac": "%s", "downtime1Dia": %f, "downtime2Dia": %f, "downtime3Dia": %f, "downtime4Dia": %f, "downtime5Dia": %f , "downtime6Dia": %f, "downtime7Dia": %f},
+                                """.formatted(ultimaLinhaCSV[7],dataFormatada,macOrigem,downtime1Dia,downtime2Dia,downtime3Dia,downtime4Dia,downtime5Dia,downtime6Dia,downtime7Dia);
                     }
 
                     arqJson += totensJson;
