@@ -1,0 +1,17 @@
+package sptech.nexo;
+import org.apache.commons.dbcp2.BasicDataSource;
+
+public class Connection {
+    private BasicDataSource dataSource;
+
+    public Connection() {
+        dataSource = new BasicDataSource();
+        dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        dataSource.setUrl("jdbc:mysql://localhost/NEXO_DB");
+        dataSource.setUsername("root");
+        dataSource.setPassword("*Gui1709*06");
+    }
+    public BasicDataSource getDataSource(){
+        return dataSource;
+    }
+}

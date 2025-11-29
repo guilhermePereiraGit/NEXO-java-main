@@ -362,20 +362,44 @@ public class ETL implements RequestHandler<S3Event, String> {
                         boolean alerta = false;
 
                         if (alertaCpu) {
-                            qtdAlertas++;
                             parametrosUltrapassados += " CPU, ";
+                            if (cpu > limiteMaxCPU*1.5){
+                                qtdAlertas += 3;
+                            }else if (cpu > limiteMaxCPU*1.25){
+                                qtdAlertas += 2;
+                            }else if(cpu > limiteMaxCPU){
+                                qtdAlertas += 1;
+                            }
                         }
                         if (alertaRam) {
-                            qtdAlertas++;
                             parametrosUltrapassados += " RAM, ";
+                            if (ram > limiteMaxRAM*1.5){
+                                qtdAlertas += 3;
+                            }else if (ram > limiteMaxRAM*1.25){
+                                qtdAlertas += 2;
+                            }else if(ram > limiteMaxRAM){
+                                qtdAlertas += 1;
+                            }
                         }
                         if (alertaDisco) {
-                            qtdAlertas++;
                             parametrosUltrapassados += " Uso de disco, ";
+                            if (disco > limiteMaxDisco*1.5){
+                                qtdAlertas += 3;
+                            }else if (disco > limiteMaxDisco*1.25){
+                                qtdAlertas += 2;
+                            }else if(disco > limiteMaxDisco){
+                                qtdAlertas += 1;
+                            }
                         }
                         if (alertaProcessos) {
-                            qtdAlertas++;
                             parametrosUltrapassados += " Quantidade de processos, ";
+                            if (procs > limiteMaxProcessos*1.5){
+                                qtdAlertas += 3;
+                            }else if (procs > limiteMaxProcessos*1.25){
+                                qtdAlertas += 2;
+                            }else if(procs > limiteMaxProcessos){
+                                qtdAlertas += 1;
+                            }
                         }
                         if (qtdAlertas >= 270 && qtdLinhas % 360 == 0) {
                             alerta = true;
