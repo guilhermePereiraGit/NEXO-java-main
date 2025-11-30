@@ -493,6 +493,7 @@ public class ETL implements RequestHandler<S3Event, String> {
                         Double cpu = converterDouble(normalizarNumero(textoLimpo(valores[1])));
                         Double ram = converterDouble(normalizarNumero(textoLimpo(valores[2])));
                         Double disco = converterDouble(normalizarNumero(textoLimpo(valores[3])));
+                        Integer qtdProcessos = converterInteiro(normalizarNumero(textoLimpo(valores[4])));
                         Double uptime = converterDouble(normalizarNumero(textoLimpo(valores[5])));
 
                         // Calcula índice da janela usando módulo de 4
@@ -501,7 +502,7 @@ public class ETL implements RequestHandler<S3Event, String> {
                         if (janelas[idx] == null) {
                             janelas[idx] = new JanelaTempo4h();
                         }
-                        janelas[idx].adicionarDado(cpu, ram, disco, uptime);
+                        janelas[idx].adicionarDado(cpu, ram, disco, qtdProcessos, uptime);
 
                     } catch (Exception e) {
                         System.out.println("Erro ao processar linha de dados: " + e.getMessage());
@@ -589,6 +590,7 @@ public class ETL implements RequestHandler<S3Event, String> {
                     jsonBuilder.append("\"cpuMedia\":").append(Math.round(janelas[i].obterMediaCpu() * 10.0) / 10.0).append(",");
                     jsonBuilder.append("\"ramMedia\":").append(Math.round(janelas[i].obterMediaRam() * 10.0) / 10.0).append(",");
                     jsonBuilder.append("\"discoMedia\":").append(Math.round(janelas[i].obterMediaDisco() * 10.0) / 10.0).append(",");
+                    jsonBuilder.append("\"qtdProcessos\":").append(janelas[i].obterUltimoqtdProcessos()).append(",");
                     jsonBuilder.append("\"uptime\":").append(janelas[i].obterUltimoUptime()).append(",");
                     jsonBuilder.append("\"processos\":[");
 
@@ -600,6 +602,7 @@ public class ETL implements RequestHandler<S3Event, String> {
                     jsonBuilder.append("\"cpuMedia\":0.0,");
                     jsonBuilder.append("\"ramMedia\":0.0,");
                     jsonBuilder.append("\"discoMedia\":0.0,");
+                    jsonBuilder.append("\"qtdProcessos\":0");
                     jsonBuilder.append("\"uptime\":0.0,");
                     jsonBuilder.append("\"processos\":[");
                 }

@@ -8,13 +8,15 @@ public class JanelaTempo4h {
     private List<Double> rams = new ArrayList<>();
     private List<Double> discos = new ArrayList<>();
     private Double ultimoUptime = 0.0;
+    private Integer ultimoQtdPreocessos = 0;
     private String modelo = "";
     private String empresa = "";
 
-    void adicionarDado(Double cpu, Double ram, Double disco, Double uptime) {
+    void adicionarDado(Double cpu, Double ram, Double disco, Integer processos, Double uptime) {
         this.cpus.add(cpu);
         this.rams.add(ram);
         this.discos.add(disco);
+        this.ultimoQtdPreocessos = processos;
         this.ultimoUptime = uptime;
     }
 
@@ -50,6 +52,10 @@ public class JanelaTempo4h {
 
     Double obterUltimoUptime() {
         return ultimoUptime;
+    }
+
+    Integer obterUltimoqtdProcessos() {
+        return ultimoQtdPreocessos;
     }
 
     public List<Double> getCpus() {
@@ -98,5 +104,13 @@ public class JanelaTempo4h {
 
     public void setEmpresa(String empresa) {
         this.empresa = empresa;
+    }
+
+    public Integer getUltimoQtdPreocessos() {
+        return ultimoQtdPreocessos;
+    }
+
+    public void setUltimoQtdPreocessos(Integer ultimoQtdPreocessos) {
+        this.ultimoQtdPreocessos = ultimoQtdPreocessos;
     }
 }
