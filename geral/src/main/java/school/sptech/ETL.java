@@ -24,8 +24,8 @@ import static school.sptech.IntegracaoJira.criarChamado;
 import static school.sptech.NotificadorSlack.enviarMensagem;
 
 public class ETL implements RequestHandler<S3Event, String> {
-    private static final String BUCKET_TRUSTED = "bucket-trusted-nexo";
-    private static final String BUCKET_CLIENT = "bucket-client-nexo";
+    private static final String BUCKET_TRUSTED = "bucket-trusted-nexo-barros";
+    private static final String BUCKET_CLIENT = "bucket-client-nexo-barros";
     private static final Region S3_REGION = Region.US_EAST_1;
 
     private static final DateTimeFormatter FORMATO_ENTRADA = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
@@ -88,7 +88,6 @@ public class ETL implements RequestHandler<S3Event, String> {
             return "ERROR";
         }
     }
-
 
     // --- PARSER DE KEY ---
     private static class KeyParts {
@@ -449,6 +448,253 @@ public class ETL implements RequestHandler<S3Event, String> {
         } finally {
             if (entrada != null) entrada.close();
             if (deuRuim) throw new RuntimeException("Falha ao gerar taxa de alertas");
+        }
+    }
+
+    // --- Métodos Client ---
+    public void dadosParaClient(String idEmpresa, String mac, String date, JdbcTemplate con) {
+        Scanner scannerDados = null;
+        Scanner scannerProcessos = null;
+
+        try {
+            // Estrutura para armazenar dados por janela de 4 horas
+            JanelaTempo4h[] janelas = new JanelaTempo4h[6];
+            Processo[] processos = new Processo[6];
+
+            String trustedKeyDados = idEmpresa + "/" + mac + "/" + date + "/dados.csv";
+            String trustedKeyProcessos = idEmpresa + "/" + mac + "/" + date + "/processos.csv";
+
+            // ========== LEITURA DE DADOS ==========
+            try {
+                GetObjectRequest getRequest = GetObjectRequest.builder()
+                        .bucket(BUCKET_TRUSTED)
+                        .key(trustedKeyDados)
+                        .build();
+
+                ResponseInputStream<GetObjectResponse> s3objectStream = s3Client.getObject(getRequest);
+                scannerDados = new java.util.Scanner(new InputStreamReader(s3objectStream, StandardCharsets.UTF_8));
+
+                boolean cabecalho = true;
+                while (scannerDados.hasNextLine()) {
+                    String linha = scannerDados.nextLine();
+                    if (cabecalho) {
+                        cabecalho = false;
+                        continue;
+                    }
+
+                    String[] valores = linha.split(",", -1);
+                    if (valores.length < 9) continue;
+
+                    try {
+                        String timestamp = textoLimpo(valores[0]);
+
+                        if (timestamp.equals("Dado_perdido")) continue;
+
+                        Double cpu = converterDouble(normalizarNumero(textoLimpo(valores[1])));
+                        Double ram = converterDouble(normalizarNumero(textoLimpo(valores[2])));
+                        Double disco = converterDouble(normalizarNumero(textoLimpo(valores[3])));
+                        Double uptime = converterDouble(normalizarNumero(textoLimpo(valores[5])));
+
+                        // Calcula índice da janela usando módulo de 4
+                        int idx = obterIndiceJanela(timestamp);
+
+                        if (janelas[idx] == null) {
+                            janelas[idx] = new JanelaTempo4h();
+                        }
+                        janelas[idx].adicionarDado(cpu, ram, disco, uptime);
+
+                    } catch (Exception e) {
+                        System.out.println("Erro ao processar linha de dados: " + e.getMessage());
+                    }
+                }
+            } catch (NoSuchKeyException e) {
+                System.out.println("Arquivo de dados não existe no trusted: " + trustedKeyDados);
+            }
+
+            // ========== LEITURA DE PROCESSOS ==========
+            try {
+                GetObjectRequest getRequest = GetObjectRequest.builder()
+                        .bucket(BUCKET_TRUSTED)
+                        .key(trustedKeyProcessos)
+                        .build();
+
+                ResponseInputStream<GetObjectResponse> s3objectStream = s3Client.getObject(getRequest);
+                scannerProcessos = new java.util.Scanner(new InputStreamReader(s3objectStream, StandardCharsets.UTF_8));
+
+                boolean cabecalho = true;
+                while (scannerProcessos.hasNextLine()) {
+                    String linha = scannerProcessos.nextLine();
+                    if (cabecalho) {
+                        cabecalho = false;
+                        continue;
+                    }
+
+                    String[] valores = linha.split(",", -1);
+                    if (valores.length < 6) continue;
+
+                    try {
+                        String timestamp = textoLimpo(valores[0]);
+                        String processo = textoLimpo(valores[1]);
+                        Double cpuProc = converterDouble(normalizarNumero(textoLimpo(valores[2])));
+                        Double ramProc = converterDouble(normalizarNumero(textoLimpo(valores[3])));
+
+                        if (timestamp.equals("Dado_perdido")) continue;
+
+                        // Calcula índice da janela usando módulo de 4
+                        int idx = obterIndiceJanela(timestamp);
+
+                        if (processos[idx] == null) {
+                            processos[idx] = new Processo();
+                        }
+                        processos[idx].adicionarProcesso(processo, cpuProc, ramProc);
+
+                    } catch (Exception e) {
+                        System.out.println("Erro ao processar linha de processos: " + e.getMessage());
+                    }
+                }
+            } catch (NoSuchKeyException e) {
+                System.out.println("Arquivo de processos não existe no trusted: " + trustedKeyProcessos);
+            }
+
+            boolean temDados = false;
+            for (JanelaTempo4h janela : janelas) {
+                if (janela != null) {
+                    temDados = true;
+                    break;
+                }
+            }
+
+            if (!temDados) {
+                System.out.println("Nenhum dado válido encontrado para " + trustedKeyDados);
+                return;
+            }
+
+            // ========== CONSTRUÇÃO DO JSON ==========
+            StringBuilder jsonBuilder = new StringBuilder();
+            jsonBuilder.append("{\"data\":\"").append(date).append("\",\"mac\":\"").append(mac).append("\",\"janelas4h\":[");
+
+            String[] ordemJanelas = {"00:00-04:00", "04:00-08:00", "08:00-12:00", "12:00-16:00", "16:00-20:00", "20:00-00:00"};
+            String[] ordemHorasFim = {"04:00", "08:00", "12:00", "16:00", "20:00", "24:00"};
+
+            for (int i = 0; i < 6; i++) {
+                if (i > 0) jsonBuilder.append(",");
+
+                String[] horas = ordemJanelas[i].split("-");
+
+                jsonBuilder.append("{\"horaInicio\":\"").append(horas[0]).append("\",");
+                jsonBuilder.append("\"horaFim\":\"").append(ordemHorasFim[i]).append("\",");
+
+                // Se a janela tem dados, usa os valores calculados, senão coloca 0
+                if (janelas[i] != null) {
+                    jsonBuilder.append("\"cpuMedia\":").append(Math.round(janelas[i].obterMediaCpu() * 10.0) / 10.0).append(",");
+                    jsonBuilder.append("\"ramMedia\":").append(Math.round(janelas[i].obterMediaRam() * 10.0) / 10.0).append(",");
+                    jsonBuilder.append("\"discoMedia\":").append(Math.round(janelas[i].obterMediaDisco() * 10.0) / 10.0).append(",");
+                    jsonBuilder.append("\"uptime\":").append(janelas[i].obterUltimoUptime()).append(",");
+                    jsonBuilder.append("\"processos\":[");
+
+                    if (processos[i] != null) {
+                        jsonBuilder.append(processos[i].obterJson());
+                    }
+                } else {
+                    // Janela vazia: valores padrão
+                    jsonBuilder.append("\"cpuMedia\":0.0,");
+                    jsonBuilder.append("\"ramMedia\":0.0,");
+                    jsonBuilder.append("\"discoMedia\":0.0,");
+                    jsonBuilder.append("\"uptime\":0.0,");
+                    jsonBuilder.append("\"processos\":[");
+                }
+
+                jsonBuilder.append("]}");
+            }
+
+            jsonBuilder.append("]}");
+
+            String clientKey = idEmpresa + "/" + mac + "/" + date + "/dados.json";
+            uploadJsonToClient(jsonBuilder.toString(), clientKey);
+
+            System.out.println("Dados consolidados para client: s3://" + BUCKET_CLIENT + "/" + clientKey);
+
+        } catch (Exception erro) {
+            System.out.println("Erro ao consolidar dados para client!");
+            erro.printStackTrace();
+        } finally {
+            if (scannerDados != null) scannerDados.close();
+            if (scannerProcessos != null) scannerProcessos.close();
+        }
+    }
+
+    private int obterIndiceJanela(String timestamp) {
+        try {
+            // Suporta dois formatos:
+            // 1. yyyy-MM-dd HH:mm:ss (com espaço e dois-pontos)
+            // 2. yyyy-MM-dd_HH-mm-ss (com underscore e hífen)
+
+            if (timestamp == null || timestamp.trim().isEmpty() || timestamp.equals("Dado_perdido")) {
+                return -1;
+            }
+
+            String horaStr = "";
+
+            // Tenta formato com espaço: yyyy-MM-dd HH:mm:ss
+            if (timestamp.contains(" ")) {
+                String[] partes = timestamp.split(" ");
+                if (partes.length >= 2) {
+                    String[] timeParts = partes[1].split(":");
+                    if (timeParts.length >= 1) {
+                        horaStr = timeParts[0];
+                    }
+                }
+            }
+            // Tenta formato com underscore: yyyy-MM-dd_HH-mm-ss
+            else if (timestamp.contains("_")) {
+                String[] partes = timestamp.split("_");
+                if (partes.length >= 2) {
+                    String[] timeParts = partes[1].split("-");
+                    if (timeParts.length >= 1) {
+                        horaStr = timeParts[0];
+                    }
+                }
+            }
+
+            if (horaStr.isEmpty()) {
+                System.out.println("Timestamp inválido - não foi possível extrair hora: " + timestamp);
+                return -1;
+            }
+
+            int hora = Integer.parseInt(horaStr);
+            int indice = hora / 4;
+
+            System.out.println("Timestamp: " + timestamp + " -> Hora: " + hora + " -> Índice: " + indice);
+
+            return indice;
+
+        } catch (Exception e) {
+            System.out.println("Erro ao obter índice da janela para timestamp '" + timestamp + "': " + e.getMessage());
+            e.printStackTrace();
+            return -1;
+        }
+    }
+
+    private void uploadJsonToClient(String jsonContent, String s3Key) {
+        try {
+            if (jsonContent == null || jsonContent.trim().isEmpty()) {
+                System.out.println("Conteúdo JSON vazio. Abortando upload.");
+                return;
+            }
+
+            PutObjectRequest putRequest = PutObjectRequest.builder()
+                    .bucket(BUCKET_CLIENT)
+                    .key(s3Key)
+                    .contentType("application/json")
+                    .build();
+
+            s3Client.putObject(putRequest, RequestBody.fromString(jsonContent, StandardCharsets.UTF_8));
+            System.out.println("Upload JSON OK: s3://" + BUCKET_CLIENT + "/" + s3Key);
+
+        } catch (Exception e) {
+            System.out.println("Erro ao fazer upload JSON para client: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException(e);
         }
     }
 
