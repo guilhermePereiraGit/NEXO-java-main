@@ -52,7 +52,7 @@ public class ETL {
             //Pegar últimos 7 Dias:
             //Esse código vai navegar convertendo a data nos diretórios dos buckets de string para data e pegando seus arquivos
                 LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
-                String dataFormatada = hoje.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+                String dataFormatada = hoje.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
 
                 //Para ele buscar os arquivos corretamente, eu vou criar uma variável key passando o caminho com base
                 //na data seguindo o modelo de dia à dia
