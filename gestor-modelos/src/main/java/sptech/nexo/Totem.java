@@ -16,6 +16,7 @@ public class Totem {
         this.regiao = regiao;
         this.modelo = modelo;
     }
+
     public Totem() {}
 
     //Getters e Setters

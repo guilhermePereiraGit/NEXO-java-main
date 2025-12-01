@@ -16,6 +16,7 @@
             Modelo modelo = new Modelo();
             modelo.setIdModelo(rs.getInt("idModelo"));
             modelo.setNome(rs.getString("nomeModelo"));
+            modelo.setFkEmpresa(rs.getInt("idEmpresa"));
             totem.setModelo(modelo);
 
             //Preenche Região para Totem

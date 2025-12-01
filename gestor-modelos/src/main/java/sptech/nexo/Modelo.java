@@ -8,13 +8,16 @@ public class Modelo {
     private Integer idModelo;
     private String nome;
     private List<Parametro> parametros = new ArrayList<>();
+    private Integer fkEmpresa;
 
     //Construtores Cheio e Vazio
-    public Modelo(Integer idModelo, String nome,Integer fkEmpresa) {
+    public Modelo(Integer idModelo, String nome, List<Parametro> parametros, Integer fkEmpresa) {
         this.idModelo = idModelo;
         this.nome = nome;
-        this.parametros = new ArrayList<>();
+        this.parametros = parametros;
+        this.fkEmpresa = fkEmpresa;
     }
+
     public Modelo() {}
 
     public Integer getIdModelo() { return idModelo; }
@@ -23,6 +26,8 @@ public class Modelo {
     public void setNome(String nome) { this.nome = nome; }
     public List<Parametro> getParametros() { return parametros; }
     public void setParametros(List<Parametro> parametros) { this.parametros = parametros; }
+    public Integer getFkEmpresa() {return fkEmpresa;}
+    public void setFkEmpresa(Integer fkEmpresa) {this.fkEmpresa = fkEmpresa;}
 
     @Override
     public String toString() {

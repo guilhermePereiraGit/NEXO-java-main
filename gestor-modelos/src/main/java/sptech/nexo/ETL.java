@@ -38,16 +38,13 @@ public class ETL {
     }
 
     //Métodos para Captura de Dados do Trusted e Tratamento
-    private static void tratarDadosClient(String macOrigem, Integer totalEmpresas){
+    private static void tratarDadosClient(String macOrigem, Integer idEmpresa){
         Scanner entrada = null;
         Boolean falhou = false;
 
         //Para retirar possíveis espaços em branco que podem surgir
         macOrigem = macOrigem.trim();
-
-        System.out.println(totalEmpresas);
         //Para navegar por todas as empresas
-        for (int i = 1; i <= totalEmpresas; i++) {
             String arqJson = "[";
             //Pegar últimos 7 Dias:
             //Esse código vai navegar convertendo a data nos diretórios dos buckets de string para data e pegando seus arquivos
@@ -56,7 +53,7 @@ public class ETL {
 
                 //Para ele buscar os arquivos corretamente, eu vou criar uma variável key passando o caminho com base
                 //na data seguindo o modelo de dia à dia
-                String caminhoArquivos = i+"/"+macOrigem+"/"+dataFormatada+"/dados.csv";
+                String caminhoArquivos = idEmpresa+"/"+macOrigem+"/"+dataFormatada+"/dados.csv";
 
                 //Agora basta tentar ler o arquivo com base no caminho construído
                 try{
@@ -95,7 +92,7 @@ public class ETL {
                     }
                     if (ultimaLinhaCSV != null){
                         //Convertendo Uptime de milisegundos para horas
-                        Double uptime = Double.parseDouble(ultimaLinhaCSV[5]);
+                        Double uptime = (Double.parseDouble(ultimaLinhaCSV[5]) * -1) / 3600;
 
                         //Calculando o Downtime
                         Double downtime1Dia = uptime - 24;
@@ -133,13 +130,12 @@ public class ETL {
 
             //Enviar para o Client
             try {
-                String local = i+"/downtime.json";
+                String local = idEmpresa+"/downtime.json";
                 String novoJson = arqJson.substring(1,arqJson.length() - 1);
                 acrescentarLinhaJson(local,novoJson);
             }catch (Exception e){
                 System.out.println("Erro ao Acessar S3 Client");
             }
-        }
     }
 
     private static void acrescentarLinhaJson(String s3Key, String novaLinhaJson){
@@ -191,7 +187,7 @@ public class ETL {
         }
     }
 
-    public static void gerarAlertas(Totem totem, Connection conexaoBanco,Integer totalEmpresas){
+    public static void gerarAlertas(Totem totem, Connection conexaoBanco,Integer idEmpresa){
         Scanner entrada = null;
         Boolean falhou = false;
 
@@ -199,19 +195,17 @@ public class ETL {
         String macOrigem = totem.getNumMac();
         macOrigem = macOrigem.trim();
 
-        System.out.println(totalEmpresas);
         //Para navegar por todas as empresas
-        for (int i = 1; i <= totalEmpresas; i++) {
             //Pegar últimos 7 Dias:
             //Esse código vai navegar convertendo a data nos diretórios dos buckets de string para data e pegando seus arquivos
             for (int j = 0; j < 7; j++) {
                 //Este minusDay substrai dias de uma data, essencial para neste caso, pegar os arquivos de hoje até 7 dias atrás pasando por todos os dias
                 LocalDate hoje = LocalDate.now(ZoneId.of("America/Sao_Paulo")).minusDays(j);
-                String dataFormatada = hoje.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+                String dataFormatada = hoje.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
 
                 //Para ele buscar os arquivos corretamente, eu vou criar uma variável key passando o caminho com base
                 //na data seguindo o modelo de dia à dia
-                String caminhoArquivos = i+"/"+macOrigem+"/"+dataFormatada+"/dados.csv";
+                String caminhoArquivos = idEmpresa+"/"+macOrigem+"/"+dataFormatada+"/dados.csv";
 
                 //Agora basta tentar ler o arquivo com base no caminho construído
                 try{
@@ -441,7 +435,7 @@ public class ETL {
 
                     //Enviar para o Client
                     try {
-                        String enviarClient = i+"/alertas.json";
+                        String enviarClient = idEmpresa+"/alertas.json";
                         String novoObjeto = alertasArq.substring(1, alertasArq.length() - 1);
                         acrescentarAlertasJson(enviarClient, novoObjeto);
                     }catch (Exception e){
@@ -460,7 +454,6 @@ public class ETL {
                     if (falhou) System.exit(1);
                 }
             }
-        }
     }
 
     private static void acrescentarAlertasJson(String s3Key, String novaLinhaJson){
@@ -515,7 +508,7 @@ public class ETL {
 
     private static List<Totem> pegarTotens(JdbcTemplate conexaoBanco){
         List<Totem> totens = conexaoBanco.query("""
-                select t.idTotem,t.numMac,m.nome AS nomeModelo,r.nome AS nomeRegiao,r.sigla,m.idModelo
+                select t.idTotem,t.numMac,m.nome AS nomeModelo,r.nome AS nomeRegiao,r.sigla,m.idModelo,m.fkEmpresa AS idEmpresa
                 from totem as t\s
                 inner join modelo as m on t.fkModelo = m.idModelo
                 inner join endereco as e on t.fkEndereco = e.idEndereco
@@ -553,8 +546,9 @@ public class ETL {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(conexaoBanco.getDataSource());
 
         for (Totem t : pegarTotens(jdbcTemplate)) {
-            tratarDadosClient(t.getNumMac(), empresas.pegarTotalEmpresas());
-            gerarAlertas(t, conexaoBanco ,empresas.pegarTotalEmpresas());
+            Integer empresaId = t.getModelo().getFkEmpresa();
+            tratarDadosClient(t.getNumMac(), empresaId);
+            gerarAlertas(t, conexaoBanco ,empresaId);
         }
     }
 }
