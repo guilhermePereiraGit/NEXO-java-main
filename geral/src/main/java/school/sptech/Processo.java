@@ -18,12 +18,13 @@ public class Processo {
         processosJson.add(procJson);
     }
 
-    String obterJson() {
-        StringBuilder sb = new StringBuilder();
+    String obterJsonArray() {
+        String resultado = "[";
         for (int i = 0; i < processosJson.size(); i++) {
-            if (i > 0) sb.append(",");
-            sb.append(processosJson.get(i));
+            if (i > 0) resultado += ",";
+            resultado += processosJson.get(i);
         }
-        return sb.toString();
+        resultado += "]";
+        return resultado;
     }
 }

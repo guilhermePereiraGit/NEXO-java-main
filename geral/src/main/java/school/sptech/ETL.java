@@ -571,52 +571,53 @@ public class ETL implements RequestHandler<S3Event, String> {
             }
 
             // ========== CONSTRUÇÃO DO JSON ==========
-            StringBuilder jsonBuilder = new StringBuilder();
-            jsonBuilder.append("{\"data\":\"").append(date).append("\",\"mac\":\"").append(mac).append("\",\"janelas4h\":[");
-
             String[] ordemJanelas = {"00:00-04:00", "04:00-08:00", "08:00-12:00", "12:00-16:00", "16:00-20:00", "20:00-00:00"};
             String[] ordemHorasFim = {"04:00", "08:00", "12:00", "16:00", "20:00", "24:00"};
 
+            String jsonJanelas = "";
+
             for (int i = 0; i < 6; i++) {
-                if (i > 0) jsonBuilder.append(",");
+                if (!jsonJanelas.isEmpty()) jsonJanelas += ",";
 
                 String[] horas = ordemJanelas[i].split("-");
+                String horaInicio = horas[0];
+                String horaFim = ordemHorasFim[i];
 
-                jsonBuilder.append("{\"horaInicio\":\"").append(horas[0]).append("\",");
-                jsonBuilder.append("\"horaFim\":\"").append(ordemHorasFim[i]).append("\",");
+                double cpuMedia = 0.0;
+                double ramMedia = 0.0;
+                double discoMedia = 0.0;
+                int qtdProcessos = 0;
+                double uptime = 0.0;
+                String processosArray = "[]";
 
-                // Se a janela tem dados, usa os valores calculados, senão coloca 0
                 if (janelas[i] != null) {
-                    jsonBuilder.append("\"cpuMedia\":").append(Math.round(janelas[i].obterMediaCpu() * 10.0) / 10.0).append(",");
-                    jsonBuilder.append("\"ramMedia\":").append(Math.round(janelas[i].obterMediaRam() * 10.0) / 10.0).append(",");
-                    jsonBuilder.append("\"discoMedia\":").append(Math.round(janelas[i].obterMediaDisco() * 10.0) / 10.0).append(",");
-                    jsonBuilder.append("\"qtdProcessos\":").append(janelas[i].obterUltimoqtdProcessos()).append(",");
-                    jsonBuilder.append("\"uptime\":").append(janelas[i].obterUltimoUptime()).append(",");
-                    jsonBuilder.append("\"processos\":[");
+                    cpuMedia = Math.round(janelas[i].obterMediaCpu() * 10.0) / 10.0;
+                    ramMedia = Math.round(janelas[i].obterMediaRam() * 10.0) / 10.0;
+                    discoMedia = Math.round(janelas[i].obterMediaDisco() * 10.0) / 10.0;
+                    qtdProcessos = janelas[i].obterUltimoqtdProcessos();
+                    uptime = janelas[i].obterUltimoUptime();
 
                     if (processos[i] != null) {
-                        jsonBuilder.append(processos[i].obterJson());
+                        processosArray = processos[i].obterJsonArray();
                     }
-                } else {
-                    // Janela vazia: valores padrão
-                    jsonBuilder.append("\"cpuMedia\":0.0,");
-                    jsonBuilder.append("\"ramMedia\":0.0,");
-                    jsonBuilder.append("\"discoMedia\":0.0,");
-                    jsonBuilder.append("\"qtdProcessos\":0");
-                    jsonBuilder.append("\"uptime\":0.0,");
-                    jsonBuilder.append("\"processos\":[");
                 }
 
-                jsonBuilder.append("]}");
+                jsonJanelas += "{\"horaInicio\":\"" + horaInicio +
+                        "\",\"horaFim\":\"" + horaFim +
+                        "\",\"cpuMedia\":" + cpuMedia +
+                        ",\"ramMedia\":" + ramMedia +
+                        ",\"discoMedia\":" + discoMedia +
+                        ",\"qtdProcessos\":" + qtdProcessos +
+                        ",\"uptime\":" + uptime +
+                        ",\"processos\":" + processosArray + "}";
             }
 
-            jsonBuilder.append("]}");
+            String jsonString = "{\"data\":\"" + date + "\",\"mac\":\"" + mac + "\",\"janelas4h\":[" + jsonJanelas + "]}";
 
             String clientKey = idEmpresa + "/" + mac + "/" + date + "/dados.json";
-            uploadJsonToClient(jsonBuilder.toString(), clientKey);
+            uploadJsonToClient(jsonString, clientKey);
 
             System.out.println("Dados consolidados para client: s3://" + BUCKET_CLIENT + "/" + clientKey);
-
         } catch (Exception erro) {
             System.out.println("Erro ao consolidar dados para client!");
             erro.printStackTrace();
