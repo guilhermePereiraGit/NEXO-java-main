@@ -149,7 +149,7 @@ public class ETL implements RequestHandler<S3Event, String> {
                     String ram = normalizarNumero(textoLimpo(valoresCompletos[2]));
                     String disco = normalizarNumero(textoLimpo(valoresCompletos[3]));
                     String procs = textoLimpo(valoresCompletos[4]);
-                    String uptime = textoLimpo(String.valueOf(Double.parseDouble(valoresCompletos[5]) / 86400));
+                    String uptime = textoLimpo(String.valueOf(Double.parseDouble(valoresCompletos[5]) / 3600));
                     String mac = textoLimpo(valoresCompletos[6]);
                     String modelo = textoLimpo(valoresCompletos[7]);
                     String empresa = textoLimpo(valoresCompletos[8]);
