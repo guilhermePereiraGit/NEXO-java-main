@@ -329,7 +329,6 @@ public class ETL implements RequestHandler<S3Event, String> {
             while (entrada.hasNextLine()) {
                 String linha = entrada.nextLine();
                 String[] valores = linha.split(",", -1);
-                parametrosUltrapassados = "";
                 nivelAlerta = "";
                 if (cabecalho) {
                     saida.append("timestamp,mac,alertaJira,cpu,ram,disco,qtdProcessos,modelo,empresa\n");
@@ -361,6 +360,9 @@ public class ETL implements RequestHandler<S3Event, String> {
                         boolean alerta = false;
 
                         if (alertaCpu) {
+                            if (!parametrosUltrapassados.contains("CPU")) {
+                                parametrosUltrapassados += " CPU, ";
+                            }
                             parametrosUltrapassados += " CPU, ";
                             if (cpu > limiteMaxCPU*1.5){
                                 qtdAlertas += 3;
@@ -371,7 +373,10 @@ public class ETL implements RequestHandler<S3Event, String> {
                             }
                         }
                         if (alertaRam) {
-                            parametrosUltrapassados += " RAM, ";
+                            if (!parametrosUltrapassados.contains("RAM")) {
+                                parametrosUltrapassados += " RAM, ";
+                            }
+
                             if (ram > limiteMaxRAM*1.5){
                                 qtdAlertas += 3;
                             }else if (ram > limiteMaxRAM*1.25){
@@ -381,7 +386,10 @@ public class ETL implements RequestHandler<S3Event, String> {
                             }
                         }
                         if (alertaDisco) {
-                            parametrosUltrapassados += " Uso de disco, ";
+                            if (!parametrosUltrapassados.contains("Uso de disco")) {
+                                parametrosUltrapassados += " Uso de disco, ";
+                            }
+
                             if (disco > limiteMaxDisco*1.5){
                                 qtdAlertas += 3;
                             }else if (disco > limiteMaxDisco*1.25){
@@ -391,7 +399,10 @@ public class ETL implements RequestHandler<S3Event, String> {
                             }
                         }
                         if (alertaProcessos) {
-                            parametrosUltrapassados += " Quantidade de processos, ";
+                            if (!parametrosUltrapassados.contains("Quantidade de processos")) {
+                                parametrosUltrapassados += " Quantidade de processos, ";
+                            }
+
                             if (procs > limiteMaxProcessos*1.5){
                                 qtdAlertas += 3;
                             }else if (procs > limiteMaxProcessos*1.25){
@@ -457,14 +468,17 @@ public class ETL implements RequestHandler<S3Event, String> {
         Scanner scannerProcessos = null;
 
         try {
-            // Estrutura para armazenar dados por janela de 4 horas
-            JanelaTempo4h[] janelas = new JanelaTempo4h[6];
-            Processo[] processos = new Processo[6];
+            // Estrutura para armazenar dados por janela de 4 horas (48 horas = 12 janelas)
+            JanelaTempo4h[] janelas = new JanelaTempo4h[12];
+            Processo[] processos = new Processo[12];
 
             String trustedKeyDados = idEmpresa + "/" + mac + "/" + date + "/dados.csv";
             String trustedKeyProcessos = idEmpresa + "/" + mac + "/" + date + "/processos.csv";
 
-            // ========== LEITURA DE DADOS ==========
+            // ========== CARREGA DADOS DO DIA ANTERIOR (índices 0-5) ==========
+            carregarDadosDiaAnterior(idEmpresa, mac, date, janelas, processos);
+
+            // ========== LEITURA DE DADOS DO DIA ATUAL (índices 6-11) ==========
             try {
                 GetObjectRequest getRequest = GetObjectRequest.builder()
                         .bucket(BUCKET_TRUSTED)
@@ -496,8 +510,12 @@ public class ETL implements RequestHandler<S3Event, String> {
                         Integer qtdProcessos = converterInteiro(normalizarNumero(textoLimpo(valores[4])));
                         Double uptime = converterDouble(normalizarNumero(textoLimpo(valores[5])));
 
-                        // Calcula índice da janela usando módulo de 4
-                        int idx = obterIndiceJanela(timestamp);
+                        // Calcula índice da janela e adiciona 6 para o dia atual
+                        int idxDiaAtual = obterIndiceJanela(timestamp);
+
+                        if (idxDiaAtual < 0 || idxDiaAtual >= 6) continue;
+
+                        int idx = idxDiaAtual + 6; // Desloca para índices 6-11
 
                         if (janelas[idx] == null) {
                             janelas[idx] = new JanelaTempo4h();
@@ -512,7 +530,7 @@ public class ETL implements RequestHandler<S3Event, String> {
                 System.out.println("Arquivo de dados não existe no trusted: " + trustedKeyDados);
             }
 
-            // ========== LEITURA DE PROCESSOS ==========
+            // ========== LEITURA DE PROCESSOS DO DIA ATUAL ==========
             try {
                 GetObjectRequest getRequest = GetObjectRequest.builder()
                         .bucket(BUCKET_TRUSTED)
@@ -541,8 +559,12 @@ public class ETL implements RequestHandler<S3Event, String> {
 
                         if (timestamp.equals("Dado_perdido")) continue;
 
-                        // Calcula índice da janela usando módulo de 4
-                        int idx = obterIndiceJanela(timestamp);
+                        // Calcula índice da janela e adiciona 6 para o dia atual
+                        int idxDiaAtual = obterIndiceJanela(timestamp);
+
+                        if (idxDiaAtual < 0 || idxDiaAtual >= 6) continue;
+
+                        int idx = idxDiaAtual + 6; // Desloca para índices 6-11
 
                         if (processos[idx] == null) {
                             processos[idx] = new Processo();
@@ -570,17 +592,34 @@ public class ETL implements RequestHandler<S3Event, String> {
                 return;
             }
 
-            // ========== CONSTRUÇÃO DO JSON ==========
-            String[] ordemJanelas = {"00:00-04:00", "04:00-08:00", "08:00-12:00", "12:00-16:00", "16:00-20:00", "20:00-00:00"};
-            String[] ordemHorasFim = {"04:00", "08:00", "12:00", "16:00", "20:00", "24:00"};
+            // ========== CONSTRUÇÃO DO JSON COM 12 JANELAS (48 HORAS) ==========
+            String[] ordemJanelas = {
+                    "48:00-44:00 (dia anterior)",
+                    "44:00-40:00 (dia anterior)",
+                    "40:00-36:00 (dia anterior)",
+                    "36:00-32:00 (dia anterior)",
+                    "32:00-28:00 (dia anterior)",
+                    "28:00-24:00 (dia anterior)",
+                    "24:00-20:00",
+                    "20:00-16:00",
+                    "16:00-12:00",
+                    "12:00-08:00",
+                    "08:00-04:00",
+                    "04:00-00:00"
+            };
+
+            String[] ordemHorasFim = {
+                    "44:00", "40:00", "36:00", "32:00", "28:00", "24:00",
+                    "20:00", "16:00", "12:00", "08:00", "04:00", "00:00"
+            };
 
             String jsonJanelas = "";
 
-            for (int i = 0; i < 6; i++) {
+            for (int i = 0; i < 12; i++) {
                 if (!jsonJanelas.isEmpty()) jsonJanelas += ",";
 
-                String[] horas = ordemJanelas[i].split("-");
-                String horaInicio = horas[0];
+                String[] horasDisplay = ordemJanelas[i].split("-");
+                String horaInicio = horasDisplay[0];
                 String horaFim = ordemHorasFim[i];
 
                 double cpuMedia = 0.0;
@@ -614,12 +653,134 @@ public class ETL implements RequestHandler<S3Event, String> {
 
             String jsonString = "{\"data\":\"" + date + "\",\"mac\":\"" + mac + "\",\"janelas4h\":[" + jsonJanelas + "]}";
 
-            String clientKey = idEmpresa + "/" + mac + "/" + date + "/dados.json";
+            String clientKey = idEmpresa + "/" + mac + "/dados.json";
             uploadJsonToClient(jsonString, clientKey);
 
-            System.out.println("Dados consolidados para client: s3://" + BUCKET_CLIENT + "/" + clientKey);
+            System.out.println("Dados consolidados para client (48 horas): s3://" + BUCKET_CLIENT + "/" + clientKey);
         } catch (Exception erro) {
             System.out.println("Erro ao consolidar dados para client!");
+            erro.printStackTrace();
+        } finally {
+            if (scannerDados != null) scannerDados.close();
+            if (scannerProcessos != null) scannerProcessos.close();
+        }
+    }
+
+    private void carregarDadosDiaAnterior(String idEmpresa, String mac, String dataAtual, JanelaTempo4h[] janelas, Processo[] processos) {
+        Scanner scannerDados = null;
+        Scanner scannerProcessos = null;
+
+        try {
+            // Calcula a data anterior
+            java.time.LocalDate dataAnteriorLocal = java.time.LocalDate.parse(dataAtual).minusDays(1);
+            String dataAnterior = dataAnteriorLocal.toString();
+
+            String trustedKeyDados = idEmpresa + "/" + mac + "/" + dataAnterior + "/dados.csv";
+            String trustedKeyProcessos = idEmpresa + "/" + mac + "/" + dataAnterior + "/processos.csv";
+
+            System.out.println("Carregando dados do dia anterior: " + dataAnterior);
+
+            // ========== LEITURA DE DADOS DO DIA ANTERIOR ==========
+            try {
+                GetObjectRequest getRequest = GetObjectRequest.builder()
+                        .bucket(BUCKET_TRUSTED)
+                        .key(trustedKeyDados)
+                        .build();
+
+                ResponseInputStream<GetObjectResponse> s3objectStream = s3Client.getObject(getRequest);
+                scannerDados = new java.util.Scanner(new InputStreamReader(s3objectStream, StandardCharsets.UTF_8));
+
+                boolean cabecalho = true;
+                while (scannerDados.hasNextLine()) {
+                    String linha = scannerDados.nextLine();
+                    if (cabecalho) {
+                        cabecalho = false;
+                        continue;
+                    }
+
+                    String[] valores = linha.split(",", -1);
+                    if (valores.length < 9) continue;
+
+                    try {
+                        String timestamp = textoLimpo(valores[0]);
+
+                        if (timestamp.equals("Dado_perdido")) continue;
+
+                        Double cpu = converterDouble(normalizarNumero(textoLimpo(valores[1])));
+                        Double ram = converterDouble(normalizarNumero(textoLimpo(valores[2])));
+                        Double disco = converterDouble(normalizarNumero(textoLimpo(valores[3])));
+                        Integer qtdProcessos = converterInteiro(normalizarNumero(textoLimpo(valores[4])));
+                        Double uptime = converterDouble(normalizarNumero(textoLimpo(valores[5])));
+
+                        // Obtém índice do dia anterior (0-5)
+                        int idx = obterIndiceJanela(timestamp);
+
+                        if (idx < 0 || idx >= 6) continue;
+
+                        if (janelas[idx] == null) {
+                            janelas[idx] = new JanelaTempo4h();
+                        }
+                        janelas[idx].adicionarDado(cpu, ram, disco, qtdProcessos, uptime);
+
+                    } catch (Exception e) {
+                        System.out.println("Erro ao processar linha de dados anterior: " + e.getMessage());
+                    }
+                }
+                System.out.println("Dados do dia anterior carregados com sucesso (índices 0-5)");
+            } catch (NoSuchKeyException e) {
+                System.out.println("Arquivo de dados do dia anterior não existe: " + trustedKeyDados);
+            }
+
+            // ========== LEITURA DE PROCESSOS DO DIA ANTERIOR ==========
+            try {
+                GetObjectRequest getRequest = GetObjectRequest.builder()
+                        .bucket(BUCKET_TRUSTED)
+                        .key(trustedKeyProcessos)
+                        .build();
+
+                ResponseInputStream<GetObjectResponse> s3objectStream = s3Client.getObject(getRequest);
+                scannerProcessos = new java.util.Scanner(new InputStreamReader(s3objectStream, StandardCharsets.UTF_8));
+
+                boolean cabecalho = true;
+                while (scannerProcessos.hasNextLine()) {
+                    String linha = scannerProcessos.nextLine();
+                    if (cabecalho) {
+                        cabecalho = false;
+                        continue;
+                    }
+
+                    String[] valores = linha.split(",", -1);
+                    if (valores.length < 6) continue;
+
+                    try {
+                        String timestamp = textoLimpo(valores[0]);
+                        String processo = textoLimpo(valores[1]);
+                        Double cpuProc = converterDouble(normalizarNumero(textoLimpo(valores[2])));
+                        Double ramProc = converterDouble(normalizarNumero(textoLimpo(valores[3])));
+
+                        if (timestamp.equals("Dado_perdido")) continue;
+
+                        // Obtém índice do dia anterior (0-5)
+                        int idx = obterIndiceJanela(timestamp);
+
+                        if (idx < 0 || idx >= 6) continue;
+
+                        if (processos[idx] == null) {
+                            processos[idx] = new Processo();
+                        }
+                        processos[idx].adicionarProcesso(processo, cpuProc, ramProc);
+
+                    } catch (Exception e) {
+                        System.out.println("Erro ao processar linha de processos anterior: " + e.getMessage());
+                    }
+                }
+                System.out.println("Processos do dia anterior carregados com sucesso");
+            } catch (NoSuchKeyException e) {
+                System.out.println("Arquivo de processos do dia anterior não existe: " + trustedKeyProcessos);
+            }
+
+        } catch (Exception erro) {
+            System.out.println("Erro ao carregar dados do dia anterior!");
             erro.printStackTrace();
         } finally {
             if (scannerDados != null) scannerDados.close();
@@ -839,7 +1000,7 @@ public class ETL implements RequestHandler<S3Event, String> {
         }
     }
 
-    private Totem buscarTotemPorMac(JdbcTemplate con, String mac) {
+    private static Totem buscarTotemPorMac(JdbcTemplate con, String mac) {
         try {
             Totem totem = con.queryForObject(
                     "SELECT t.idTotem, t.numMac, t.status, t.fkEndereco, m.idModelo, m.nome, m.descricao_arq, m.status, m.fkEmpresa " +
@@ -871,5 +1032,4 @@ public class ETL implements RequestHandler<S3Event, String> {
     private String textoLimpos(String s) {
         return textoLimpo(s);
     }
-
 }
