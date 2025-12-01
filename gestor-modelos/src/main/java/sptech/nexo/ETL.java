@@ -56,7 +56,7 @@ public class ETL {
 
                 //Para ele buscar os arquivos corretamente, eu vou criar uma variável key passando o caminho com base
                 //na data seguindo o modelo de dia à dia
-                String caminhoArquivos = "empresa-"+i+"/"+macOrigem+"/"+dataFormatada+"/dados.csv";
+                String caminhoArquivos = i+"/"+macOrigem+"/"+dataFormatada+"/dados.csv";
 
                 //Agora basta tentar ler o arquivo com base no caminho construído
                 try{
@@ -95,7 +95,7 @@ public class ETL {
                     }
                     if (ultimaLinhaCSV != null){
                         //Convertendo Uptime de milisegundos para horas
-                        Double uptime = Double.parseDouble(ultimaLinhaCSV[5]) / 3600000;
+                        Double uptime = Double.parseDouble(ultimaLinhaCSV[5]);
 
                         //Calculando o Downtime
                         Double downtime1Dia = uptime - 24;
@@ -133,7 +133,7 @@ public class ETL {
 
             //Enviar para o Client
             try {
-                String local = "empresa-"+i+"/downtime.json";
+                String local = i+"/downtime.json";
                 String novoJson = arqJson.substring(1,arqJson.length() - 1);
                 acrescentarLinhaJson(local,novoJson);
             }catch (Exception e){
@@ -211,7 +211,7 @@ public class ETL {
 
                 //Para ele buscar os arquivos corretamente, eu vou criar uma variável key passando o caminho com base
                 //na data seguindo o modelo de dia à dia
-                String caminhoArquivos = "empresa-"+i+"/"+macOrigem+"/"+dataFormatada+"/dados.csv";
+                String caminhoArquivos = i+"/"+macOrigem+"/"+dataFormatada+"/dados.csv";
 
                 //Agora basta tentar ler o arquivo com base no caminho construído
                 try{
@@ -441,7 +441,7 @@ public class ETL {
 
                     //Enviar para o Client
                     try {
-                        String enviarClient = "empresa-"+i+"/alertas.json";
+                        String enviarClient = i+"/alertas.json";
                         String novoObjeto = alertasArq.substring(1, alertasArq.length() - 1);
                         acrescentarAlertasJson(enviarClient, novoObjeto);
                     }catch (Exception e){
