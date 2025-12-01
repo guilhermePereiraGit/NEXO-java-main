@@ -339,7 +339,7 @@ public class ETL implements RequestHandler<S3Event, String> {
                         if (i < valores.length && valores[i] != null && !valores[i].trim().isEmpty() && !valores[i].contains("dado_perdido")) {
                             valoresCompletos[i] = valores[i];
                         } else {
-                            pular = true;
+                            valoresCompletos[i] = "0";
                         }
                     }
                     if (!pular) {
@@ -363,7 +363,6 @@ public class ETL implements RequestHandler<S3Event, String> {
                             if (!parametrosUltrapassados.contains("CPU")) {
                                 parametrosUltrapassados += " CPU, ";
                             }
-                            parametrosUltrapassados += " CPU, ";
                             if (cpu > limiteMaxCPU*1.5){
                                 qtdAlertas += 3;
                             }else if (cpu > limiteMaxCPU*1.25){
@@ -411,15 +410,15 @@ public class ETL implements RequestHandler<S3Event, String> {
                                 qtdAlertas += 1;
                             }
                         }
-                        if (qtdAlertas >= 270 && qtdLinhas % 360 == 0) {
+                        if (qtdAlertas >= 270 && qtdLinhas >= 360) {
                             alerta = true;
                             nivelAlerta = "Muito Perigoso";
                             qtdAlertas = 0;
-                        } else if (qtdAlertas >= 180 && qtdLinhas % 360 == 0) {
+                        } else if (qtdAlertas >= 180 && qtdLinhas >= 360) {
                             alerta = true;
                             nivelAlerta = "Perigoso";
                             qtdAlertas = 0;
-                        } else if (qtdAlertas >= 90 && qtdLinhas % 360 == 0) {
+                        } else if (qtdAlertas >= 90 && qtdLinhas >= 360) {
                             alerta = true;
                             nivelAlerta = "Atenção";
                             qtdAlertas = 0;
